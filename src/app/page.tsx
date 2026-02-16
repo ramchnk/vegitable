@@ -1,3 +1,5 @@
+
+"use client";
 import {
   Card,
   CardContent,
@@ -17,24 +19,36 @@ import { Badge } from '@/components/ui/badge';
 import { RecentSalesChart } from '@/components/dashboard/recent-sales-chart';
 import {
   Banknote,
+  Download,
   Package,
   ShoppingCart,
   Users,
 } from 'lucide-react';
 import Header from '@/components/layout/header';
+import { Button } from '@/components/ui/button';
+import { downloadCsv, formatCurrency } from '@/lib/utils';
 
 const recentTransactions = [
-  { id: '1', customer: 'Venkatesh', amount: '1,250.00', status: 'Paid' },
-  { id: '2', customer: 'Suresh Kumar', amount: '850.50', status: 'Paid' },
-  { id: '3', customer: 'Anbu Retail', amount: '3,400.00', status: 'Credit' },
-  { id: '4', customer: 'Kannan Stores', amount: '550.00', status: 'Paid' },
-  { id: '5', customer: 'FreshMart', amount: '2,100.00', status: 'Credit' },
+  { id: '1', customer: 'Venkatesh', amount: 1250.00, status: 'Paid' },
+  { id: '2', customer: 'Suresh Kumar', amount: 850.50, status: 'Paid' },
+  { id: '3', customer: 'Anbu Retail', amount: 3400.00, status: 'Credit' },
+  { id: '4', customer: 'Kannan Stores', amount: 550.00, status: 'Paid' },
+  { id: '5', customer: 'FreshMart', amount: 2100.00, status: 'Credit' },
 ];
 
 export default function DashboardPage() {
+    const handleExport = () => {
+        downloadCsv(recentTransactions, 'recent_transactions.csv');
+    }
+
   return (
     <>
-      <Header title="Dashboard" />
+      <Header title="Dashboard">
+        <Button size="sm" variant="outline" className="gap-1" onClick={handleExport}>
+            <Download className="h-4 w-4" />
+            Export CSV
+        </Button>
+      </Header>
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6">
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
@@ -115,7 +129,7 @@ export default function DashboardPage() {
                   {recentTransactions.map((transaction) => (
                     <TableRow key={transaction.id}>
                       <TableCell>{transaction.customer}</TableCell>
-                      <TableCell className="text-right">{transaction.amount}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(transaction.amount)}</TableCell>
                       <TableCell className="text-right">
                         <Badge
                           variant={
