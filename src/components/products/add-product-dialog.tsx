@@ -40,6 +40,8 @@ export function AddProductDialog({ children }: { children: React.ReactNode }) {
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
     defaultValues: {
+      itemCode: "",
+      name: "",
       rate1: 0,
       rate2: 0,
       rate3: 0,
@@ -50,6 +52,7 @@ export function AddProductDialog({ children }: { children: React.ReactNode }) {
     console.log(data);
     // Here you would typically handle the form submission, e.g., send to an API
     setOpen(false);
+    form.reset();
   }
 
   return (

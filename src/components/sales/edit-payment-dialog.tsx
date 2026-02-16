@@ -23,6 +23,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import type { PaymentDetail } from "@/lib/types";
+import { useEffect } from "react";
 
 const paymentFormSchema = z.object({
   dueAmount: z.coerce.number().min(0, "Due amount must be non-negative"),
@@ -40,10 +41,16 @@ interface EditPaymentDialogProps {
 export function EditPaymentDialog({ payment, open, onOpenChange, onSave }: EditPaymentDialogProps) {
   const form = useForm<PaymentFormValues>({
     resolver: zodResolver(paymentFormSchema),
-    values: {
-        dueAmount: payment?.dueAmount || 0,
+    defaultValues: {
+        dueAmount: 0,
     }
   });
+
+  useEffect(() => {
+    if (payment) {
+        form.reset({ dueAmount: payment.dueAmount });
+    }
+  }, [payment, form]);
 
   function onSubmit(data: PaymentFormValues) {
     onSave(data);

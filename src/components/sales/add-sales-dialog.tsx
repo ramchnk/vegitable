@@ -33,6 +33,7 @@ import { z } from "zod";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PlusCircle, Trash } from "lucide-react";
 import { products } from "@/lib/data";
+import { useState } from "react";
 
 const salesFormSchema = z.object({
   customerName: z.string().min(1, "Customer name is required"),
@@ -49,9 +50,13 @@ const salesFormSchema = z.object({
 type SalesFormValues = z.infer<typeof salesFormSchema>;
 
 export function AddSalesDialog({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
   const form = useForm<SalesFormValues>({
     resolver: zodResolver(salesFormSchema),
     defaultValues: {
+      customerName: "",
+      contact: "",
+      address: "",
       items: [{ itemName: "", price: 0, quantity: 1 }],
       paymentMethod: "Cash",
     },
@@ -65,10 +70,12 @@ export function AddSalesDialog({ children }: { children: React.ReactNode }) {
   function onSubmit(data: SalesFormValues) {
     console.log(data);
     // Here you would typically handle the form submission, e.g., send to an API
+    setOpen(false);
+    form.reset();
   }
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-4xl">
         <DialogHeader>
