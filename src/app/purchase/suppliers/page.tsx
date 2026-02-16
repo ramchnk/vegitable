@@ -24,16 +24,24 @@ import { Input } from "@/components/ui/input";
 import { Plus, User, Wallet, BookOpen, Pencil } from "lucide-react";
 import { useTransactions } from "@/context/transaction-provider";
 import { formatCurrency } from "@/lib/utils";
-import type { PaymentDetail } from "@/lib/types";
+import type { PaymentDetail, Supplier } from "@/lib/types";
 import { AddSupplierDialog } from "@/components/purchase/add-supplier-dialog";
+import { EditSupplierDialog } from "@/components/purchase/edit-supplier-dialog";
 
 export default function PurchaseSuppliersPage() {
-  const { supplierPayments } = useTransactions();
+  const { supplierPayments, updateSupplier, updateSupplierPayment } = useTransactions();
   const [searchTerm, setSearchTerm] = useState("");
+  const [editingSupplier, setEditingSupplier] = useState<PaymentDetail | null>(null);
 
   const filteredSuppliers = supplierPayments.filter((supplier) =>
     supplier.partyName.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleSave = (supplier: Supplier, payment: PaymentDetail) => {
+    updateSupplier(supplier);
+    updateSupplierPayment(payment);
+    setEditingSupplier(null);
+  };
 
   return (
     <>
@@ -88,7 +96,7 @@ export default function PurchaseSuppliersPage() {
                     <TableCell>
                         <div className="flex items-center gap-1">
                             <span>{supplier.partyName}</span>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:bg-transparent">
+                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:bg-transparent" onClick={() => setEditingSupplier(supplier)}>
                                 <Pencil className="h-3 w-3"/>
                             </Button>
                         </div>
@@ -109,6 +117,12 @@ export default function PurchaseSuppliersPage() {
             </Table>
           </CardContent>
         </Card>
+        <EditSupplierDialog
+          payment={editingSupplier}
+          open={!!editingSupplier}
+          onOpenChange={(open) => !open && setEditingSupplier(null)}
+          onSave={handleSave}
+        />
       </main>
     </>
   );
