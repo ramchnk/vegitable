@@ -14,9 +14,9 @@ import { Calendar } from '@/components/ui/calendar';
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { cn, formatCurrency } from '@/lib/utils';
-import Link from 'next/link';
 import { useTransactions } from '@/context/transaction-provider';
 import { BuyersLedgerDialog } from '@/components/settings/buyers-ledger-dialog';
+import { SupplierLedgerDialog } from '@/components/settings/supplier-ledger-dialog';
 
 
 const SummaryCard = ({ title, titleClassName, titleTextClassName, children }: { title: string, titleClassName?: string, titleTextClassName?: string, children: React.ReactNode }) => (
@@ -45,6 +45,7 @@ const DefaultSummaryCard = ({ title, children }: { title: string, children: Reac
 export default function AccountsPage() {
     const [date, setDate] = useState<Date | undefined>(new Date());
     const [isBuyerLedgerOpen, setIsBuyerLedgerOpen] = useState(false);
+    const [isSupplierLedgerOpen, setIsSupplierLedgerOpen] = useState(false);
     const { transactions } = useTransactions();
 
     const { dailySales, totalSales } = useMemo(() => {
@@ -67,6 +68,28 @@ export default function AccountsPage() {
         const total = dailySalesData.reduce((sum, sale) => sum + sale.amount, 0);
 
         return { dailySales: dailySalesData, totalSales: total };
+    }, [date, transactions]);
+
+    const { dailyPurchases, totalPurchases } = useMemo(() => {
+        if (!date) return { dailyPurchases: [], totalPurchases: 0 };
+        
+        const purchasesForDate = transactions.filter(t => 
+            t.type === 'Purchase' && 
+            format(new Date(t.date), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
+        );
+        
+        const purchasesBySupplier = purchasesForDate.reduce((acc, curr) => {
+            if (!acc[curr.party]) {
+                acc[curr.party] = 0;
+            }
+            acc[curr.party] += curr.amount;
+            return acc;
+        }, {} as Record<string, number>);
+
+        const dailyPurchasesData = Object.entries(purchasesBySupplier).map(([supplier, amount]) => ({ supplier, amount }));
+        const total = dailyPurchasesData.reduce((sum, purchase) => sum + purchase.amount, 0);
+
+        return { dailyPurchases: dailyPurchasesData, totalPurchases: total };
     }, [date, transactions]);
 
 
@@ -119,12 +142,23 @@ export default function AccountsPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {/* Data would be populated here */}
+                                {dailyPurchases.length > 0 ? (
+                                    dailyPurchases.map(purchase => (
+                                        <TableRow key={purchase.supplier}>
+                                            <TableCell>{purchase.supplier}</TableCell>
+                                            <TableCell className="text-right">{formatCurrency(purchase.amount)}</TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={2} className="text-center">No purchases for this date.</TableCell>
+                                    </TableRow>
+                                )}
                             </TableBody>
                             <TableFooter>
                                 <TableRow>
                                     <TableCell className="font-bold">Total</TableCell>
-                                    <TableCell className="text-right font-bold">₹0</TableCell>
+                                    <TableCell className="text-right font-bold">{formatCurrency(totalPurchases)}</TableCell>
                                 </TableRow>
                             </TableFooter>
                         </Table>
@@ -169,7 +203,7 @@ export default function AccountsPage() {
                              <div className="flex justify-between pl-4"><span>Ready Cash</span><span>₹0</span></div>
                              <div className="flex justify-between pl-4"><span>Money In</span><span>{formatCurrency(totalSales)}</span></div>
                              <p className="font-semibold text-destructive">Debit</p>
-                             <div className="flex justify-between pl-4"><span>Money Out</span><span>₹0</span></div>
+                             <div className="flex justify-between pl-4"><span>Money Out</span><span>{formatCurrency(totalPurchases)}</span></div>
                              <div className="flex justify-between pl-4"><span>Total Expenses</span><span>₹0</span></div>
                              <hr className="my-2"/>
                             <div className="flex justify-between font-bold"><span>Closing Balance</span><span>₹0</span></div>
@@ -209,9 +243,7 @@ export default function AccountsPage() {
                 
                 <div className="flex flex-col md:flex-row items-center justify-center gap-4 pt-4">
                     <Button>Save</Button>
-                    <Link href="/purchase/suppliers" passHref>
-                        <Button variant="outline" className="bg-accent hover:bg-accent/90 text-accent-foreground w-full md:w-auto">Supplier Ledger</Button>
-                    </Link>
+                    <Button variant="outline" className="bg-accent hover:bg-accent/90 text-accent-foreground w-full md:w-auto" onClick={() => setIsSupplierLedgerOpen(true)}>Supplier Ledger</Button>
                     <Button variant="default" className="w-full md:w-auto" onClick={() => setIsBuyerLedgerOpen(true)}>Buyer's Ledger</Button>
                 </div>
             </main>
@@ -219,6 +251,13 @@ export default function AccountsPage() {
                 open={isBuyerLedgerOpen}
                 onOpenChange={setIsBuyerLedgerOpen}
                 date={date}
+            />
+            <SupplierLedgerDialog
+                open={isSupplierLedgerOpen}
+                onOpenChange={setIsSupplierLedgerOpen}
+                date={date}
+                dailyPurchases={dailyPurchases}
+                totalPurchases={totalPurchases}
             />
         </>
     );
