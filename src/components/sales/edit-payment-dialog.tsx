@@ -60,7 +60,7 @@ export function EditPaymentDialog({ payment, open, onOpenChange, onSave }: EditP
       const updatedPayment = {
         ...payment,
         paidAmount: newPaidAmount,
-        dueAmount: newDueAmount > 0 ? newDueAmount : 0,
+        dueAmount: newDueAmount,
       };
       onSave(updatedPayment);
     }
@@ -100,7 +100,7 @@ export function EditPaymentDialog({ payment, open, onOpenChange, onSave }: EditP
                 </FormItem>
               )}
             />
-            <p><strong>Remaining Due:</strong> {formatCurrency(newDueAmount >= 0 ? newDueAmount : 0)}</p>
+            <p><strong>Remaining Due:</strong> {formatCurrency(newDueAmount)}</p>
             <DialogFooter>
               <Button type="submit">Save Payment</Button>
             </DialogFooter>

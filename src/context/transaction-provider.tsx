@@ -146,7 +146,6 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
                     existingPayment.totalAmount += totalAmount;
                     existingPayment.paidAmount += amountPaid;
                     existingPayment.dueAmount = existingPayment.totalAmount - existingPayment.paidAmount;
-                    if (existingPayment.dueAmount < 0) existingPayment.dueAmount = 0;
                     existingPayment.paymentMethod = paymentMethod;
     
                     return updatedPayments;
@@ -189,7 +188,6 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
                     existingPayment.totalAmount += totalAmount;
                     existingPayment.paidAmount += amountPaid;
                     existingPayment.dueAmount = existingPayment.totalAmount - existingPayment.paidAmount;
-                     if (existingPayment.dueAmount < 0) existingPayment.dueAmount = 0;
                     existingPayment.paymentMethod = paymentMethod;
     
                     return updatedPayments;
