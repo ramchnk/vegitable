@@ -43,17 +43,18 @@ const DefaultSummaryCard = ({ title, children }: { title: string, children: Reac
 
 
 export default function AccountsPage() {
-    const [date, setDate] = useState<Date | undefined>(new Date());
+    const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+    const [activeDate, setActiveDate] = useState<Date | undefined>(new Date());
     const [isBuyerLedgerOpen, setIsBuyerLedgerOpen] = useState(false);
     const [isSupplierLedgerOpen, setIsSupplierLedgerOpen] = useState(false);
     const { transactions } = useTransactions();
 
     const { dailySales, totalSales } = useMemo(() => {
-        if (!date) return { dailySales: [], totalSales: 0 };
+        if (!activeDate) return { dailySales: [], totalSales: 0 };
         
         const salesForDate = transactions.filter(t => 
             t.type === 'Sale' && 
-            format(new Date(t.date), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
+            format(new Date(t.date), 'yyyy-MM-dd') === format(activeDate, 'yyyy-MM-dd')
         );
         
         const salesByCustomer = salesForDate.reduce((acc, curr) => {
@@ -68,14 +69,14 @@ export default function AccountsPage() {
         const total = dailySalesData.reduce((sum, sale) => sum + sale.amount, 0);
 
         return { dailySales: dailySalesData, totalSales: total };
-    }, [date, transactions]);
+    }, [activeDate, transactions]);
 
     const { dailyPurchases, totalPurchases } = useMemo(() => {
-        if (!date) return { dailyPurchases: [], totalPurchases: 0 };
+        if (!activeDate) return { dailyPurchases: [], totalPurchases: 0 };
         
         const purchasesForDate = transactions.filter(t => 
             t.type === 'Purchase' && 
-            format(new Date(t.date), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
+            format(new Date(t.date), 'yyyy-MM-dd') === format(activeDate, 'yyyy-MM-dd')
         );
         
         const purchasesBySupplier = purchasesForDate.reduce((acc, curr) => {
@@ -90,7 +91,11 @@ export default function AccountsPage() {
         const total = dailyPurchasesData.reduce((sum, purchase) => sum + purchase.amount, 0);
 
         return { dailyPurchases: dailyPurchasesData, totalPurchases: total };
-    }, [date, transactions]);
+    }, [activeDate, transactions]);
+    
+    const handleLoad = () => {
+        setActiveDate(selectedDate);
+    }
 
 
     return (
@@ -103,23 +108,23 @@ export default function AccountsPage() {
                                 variant={"outline"}
                                 className={cn(
                                     "w-[180px] justify-start text-left font-normal",
-                                    !date && "text-muted-foreground"
+                                    !selectedDate && "text-muted-foreground"
                                 )}
                             >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {date ? format(date, "dd-MM-yyyy") : <span>Pick a date</span>}
+                                {selectedDate ? format(selectedDate, "dd-MM-yyyy") : <span>Pick a date</span>}
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0">
                             <Calendar
                                 mode="single"
-                                selected={date}
-                                onSelect={setDate}
+                                selected={selectedDate}
+                                onSelect={setSelectedDate}
                                 initialFocus
                             />
                         </PopoverContent>
                     </Popover>
-                    <Button>Load</Button>
+                    <Button onClick={handleLoad}>Load</Button>
                 </div>
             </Header>
             <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6 bg-background">
@@ -250,12 +255,12 @@ export default function AccountsPage() {
             <BuyersLedgerDialog
                 open={isBuyerLedgerOpen}
                 onOpenChange={setIsBuyerLedgerOpen}
-                date={date}
+                date={activeDate}
             />
             <SupplierLedgerDialog
                 open={isSupplierLedgerOpen}
                 onOpenChange={setIsSupplierLedgerOpen}
-                date={date}
+                date={activeDate}
                 dailyPurchases={dailyPurchases}
                 totalPurchases={totalPurchases}
             />
