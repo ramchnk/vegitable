@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Header from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,8 +28,12 @@ import { Download, Edit, MoreHorizontal, ArrowLeft } from "lucide-react";
 import { suppliers } from "@/lib/data";
 import { downloadCsv } from "@/lib/utils";
 import Link from "next/link";
+import type { Supplier } from "@/lib/types";
+import { EditSupplierDialog } from "@/components/purchase/edit-supplier-dialog";
 
 export default function PurchaseSuppliersPage() {
+  const [editSupplier, setEditSupplier] = useState<Supplier | null>(null);
+
   const handleExport = () => {
     downloadCsv(suppliers, "suppliers.csv");
   };
@@ -43,7 +48,12 @@ export default function PurchaseSuppliersPage() {
               Back
             </Button>
           </Link>
-          <Button size="sm" variant="outline" className="gap-1" onClick={handleExport}>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1"
+            onClick={handleExport}
+          >
             <Download className="h-4 w-4" />
             Export CSV
           </Button>
@@ -65,15 +75,15 @@ export default function PurchaseSuppliersPage() {
                   <TableHead>Supplier Name</TableHead>
                   <TableHead>Contact</TableHead>
                   <TableHead>Address</TableHead>
-                  <TableHead>
-                    <span className="sr-only">Actions</span>
-                  </TableHead>
+                  <TableHead>Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {suppliers.map((supplier) => (
                   <TableRow key={supplier.id}>
-                    <TableCell className="font-medium">{supplier.id}</TableCell>
+                    <TableCell className="font-medium">
+                      {supplier.id}
+                    </TableCell>
                     <TableCell>{supplier.name}</TableCell>
                     <TableCell>{supplier.contact}</TableCell>
                     <TableCell>{supplier.address}</TableCell>
@@ -90,7 +100,9 @@ export default function PurchaseSuppliersPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => setEditSupplier(supplier)}
+                          >
                             <Edit className="h-4 w-4 mr-2" /> Edit
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -102,6 +114,12 @@ export default function PurchaseSuppliersPage() {
             </Table>
           </CardContent>
         </Card>
+        <EditSupplierDialog
+          supplier={editSupplier}
+          open={!!editSupplier}
+          onOpenChange={(open) => !open && setEditSupplier(null)}
+          onSave={(values) => console.log(values)}
+        />
       </main>
     </>
   );
