@@ -23,6 +23,7 @@ interface TransactionContextType {
     updateSupplierPayment: (payment: PaymentDetail) => void;
     updateCustomerPayment: (payment: PaymentDetail) => void;
     suppliers: Supplier[];
+    addSupplier: (supplier: Omit<Supplier, 'id'>) => void;
     updateSupplier: (supplier: Supplier) => void;
     customers: Customer[];
     updateCustomer: (customer: Customer) => void;
@@ -208,6 +209,39 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
         }
     };
 
+    const addSupplier = (newSupplierData: Omit<Supplier, 'id'>) => {
+        setSuppliers(prev => {
+            const existingSupplier = prev.find(s => s.name.toLowerCase() === newSupplierData.name.toLowerCase());
+            if (existingSupplier) {
+                return prev;
+            }
+
+            const newSupplierId = `SUP${(prev.length + 1).toString().padStart(3, '0')}`;
+            const newSupplier: Supplier = {
+                id: newSupplierId,
+                name: newSupplierData.name,
+                contact: newSupplierData.contact || '',
+                address: newSupplierData.address || '',
+            };
+
+            setSupplierPayments(prevPayments => {
+                const newPaymentId = (Math.max(0, ...prevPayments.map(p => parseInt(p.id) || 0)) + 1).toString();
+                const newPayment: PaymentDetail = {
+                    id: newPaymentId,
+                    partyId: newSupplier.id,
+                    partyName: newSupplier.name,
+                    totalAmount: 0,
+                    paidAmount: 0,
+                    dueAmount: 0,
+                    paymentMethod: 'Credit',
+                };
+                return [...prevPayments, newPayment];
+            });
+
+            return [...prev, newSupplier];
+        });
+    };
+
     const updateSupplierPayment = (updatedPayment: PaymentDetail) => {
         setSupplierPayments(prev => prev.map(p => p.id === updatedPayment.id ? updatedPayment : p));
     }
@@ -228,7 +262,7 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
 
 
     return (
-        <TransactionContext.Provider value={{ transactions, addTransaction, supplierPayments, customerPayments, updateSupplierPayment, updateCustomerPayment, suppliers, updateSupplier, customers, updateCustomer }}>
+        <TransactionContext.Provider value={{ transactions, addTransaction, supplierPayments, customerPayments, updateSupplierPayment, updateCustomerPayment, suppliers, addSupplier, updateSupplier, customers, updateCustomer }}>
             {children}
         </TransactionContext.Provider>
     );

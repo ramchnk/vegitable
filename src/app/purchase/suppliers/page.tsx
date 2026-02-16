@@ -24,6 +24,7 @@ import { Plus, User, Wallet, BookOpen, Pencil } from "lucide-react";
 import { useTransactions } from "@/context/transaction-provider";
 import { formatCurrency } from "@/lib/utils";
 import type { PaymentDetail } from "@/lib/types";
+import { AddSupplierDialog } from "@/components/purchase/add-supplier-dialog";
 
 export default function PurchaseSuppliersPage() {
   const { supplierPayments } = useTransactions();
@@ -43,10 +44,12 @@ export default function PurchaseSuppliersPage() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
             />
-            <Button size="sm" className="gap-1">
-                <Plus className="h-4 w-4" />
-                New
-            </Button>
+            <AddSupplierDialog>
+              <Button size="sm" className="gap-1">
+                  <Plus className="h-4 w-4" />
+                  New
+              </Button>
+            </AddSupplierDialog>
         </div>
       </Header>
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6">
