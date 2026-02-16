@@ -36,12 +36,15 @@ import {
   ShoppingCart,
   Truck,
   MoreHorizontal,
+  Users,
 } from "lucide-react";
 
 
 const menuItems = [
+    { href: '/dashboard', label: 'Dashboard', icon: LineChart },
+    { href: '/vegetable-intake', label: 'Vegetable Intake', icon: Leaf },
+    { href: '/sales', label: 'Sales', icon: ShoppingCart },
     { href: '/purchase', label: 'Purchase', icon: Truck },
-    { href: '/sales-old', label: 'Sales Old', icon: ShoppingCart },
     { href: '/products', label: 'Products', icon: Package },
     { href: '/reports', label: 'Transaction Report', icon: LineChart },
     { href: '/credits', label: 'Credits', icon: CreditCard },
@@ -70,7 +73,7 @@ export function SidebarNav() {
                          <SidebarMenuItem key={item.href}>
                             <SidebarMenuButton
                                 asChild
-                                isActive={pathname === item.href}
+                                isActive={pathname.startsWith(item.href)}
                                 className="w-full justify-start"
                             >
                                 <Link href={item.href}>
