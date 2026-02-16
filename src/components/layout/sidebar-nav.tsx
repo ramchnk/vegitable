@@ -27,16 +27,12 @@ import {
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils";
 import {
-  CreditCard,
   Leaf,
   LineChart,
   LogOut,
-  Package,
   Settings,
   ShoppingCart,
-  Truck,
   MoreHorizontal,
-  Users,
 } from "lucide-react";
 
 
@@ -44,11 +40,6 @@ const menuItems = [
     { href: '/dashboard', label: 'Dashboard', icon: LineChart },
     { href: '/vegetable-intake', label: 'Vegetable Intake', icon: Leaf },
     { href: '/sales', label: 'Sales', icon: ShoppingCart },
-    { href: '/purchase', label: 'Purchase', icon: Truck },
-    { href: '/products', label: 'Products', icon: Package },
-    { href: '/reports', label: 'Transaction Report', icon: LineChart },
-    { href: '/credits', label: 'Credits', icon: CreditCard },
-    { href: '/settings', label: 'Settings', icon: Settings },
 ]
 
 export function SidebarNav() {
