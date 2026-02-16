@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -172,6 +173,54 @@ export default function SalesPage() {
     if (product) {
       setNewItemPrice(product.rate1.toString());
     }
+  }
+
+  const handleWhatsApp = () => {
+    const customerId = form.getValues("customerId");
+    if (!customerId) {
+        toast({
+            variant: "destructive",
+            title: "No Customer Selected",
+            description: "Please select a customer first.",
+        });
+        return;
+    }
+    
+    const customer = customers.find(c => c.id === customerId);
+    if (!customer?.contact) {
+        toast({
+            variant: "destructive",
+            title: "No Contact Info",
+            description: "This customer does not have a contact number.",
+        });
+        return;
+    }
+    
+    const items = form.getValues("items");
+    if (items.length === 0) {
+        toast({
+            variant: "destructive",
+            title: "No Items",
+            description: "Please add items to the sale.",
+        });
+        return;
+    }
+
+    const totalCostValue = items.reduce((acc, item) => acc + (item.quantity || 0) * (item.price || 0), 0);
+
+    let message = `Hello ${customer.name},\n\nHere is your bill summary:\n\n`;
+    items.forEach(item => {
+        const product = products.find(p => p.id === item.itemId);
+        message += `- ${product?.name || 'Unknown Item'} (${item.quantity} kg) @ ${formatCurrency(item.price)}/kg = ${formatCurrency(item.quantity * item.price)}\n`;
+    });
+    message += `\n*Total Amount: ${formatCurrency(totalCostValue)}*\n\n`;
+    message += `Thank you for your business!`;
+
+    const phoneNumber = customer.contact.replace(/[^0-9]/g, '');
+    const whatsappNumber = phoneNumber.startsWith('91') ? phoneNumber : `91${phoneNumber}`;
+    
+    const encodedMessage = encodeURIComponent(message);
+    window.open(`https://wa.me/${whatsappNumber}?text=${encodedMessage}`, '_blank');
   }
 
   return (
@@ -365,7 +414,7 @@ export default function SalesPage() {
               <CardFooter className="gap-2">
                 <Button type="submit" size="lg">Submit Sales</Button>
                 <Button type="button" variant="outline" size="icon"><Printer className="h-4 w-4" /></Button>
-                <Button type="button" variant="outline" size="icon"><MessageCircle className="h-4 w-4" /></Button>
+                <Button type="button" variant="outline" size="icon" onClick={handleWhatsApp}><MessageCircle className="h-4 w-4" /></Button>
               </CardFooter>
             </Card>
           </form>

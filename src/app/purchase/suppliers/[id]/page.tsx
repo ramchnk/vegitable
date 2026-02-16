@@ -16,12 +16,14 @@ import { Calendar } from '@/components/ui/calendar';
 import { useTransactions } from '@/context/transaction-provider';
 import { formatCurrency, cn, downloadCsv } from '@/lib/utils';
 import { ArrowLeft, Calendar as CalendarIcon, Download, Printer, MessageCircle, ShoppingCart, TrendingUp, TrendingDown } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 export default function SupplierLedgerPage() {
     const params = useParams();
     const supplierId = params.id as string;
 
     const { suppliers, transactions, supplierPayments } = useTransactions();
+    const { toast } = useToast();
     
     const [date, setDate] = useState<DateRange | undefined>();
     const [searchTerm, setSearchTerm] = useState('');
@@ -124,6 +126,33 @@ export default function SupplierLedgerPage() {
         downloadCsv([...dataToExport, {} as any, summary], `${supplier.name}_ledger.csv`);
     }
 
+    const handleWhatsApp = () => {
+        if (!supplier?.contact) {
+            toast({
+                variant: "destructive",
+                title: "No Contact Info",
+                description: "This supplier does not have a contact number.",
+            });
+            return;
+        }
+        
+        const fromDate = date?.from ? format(date.from, "dd/MM/yyyy") : 'the beginning';
+        const toDate = date?.to ? format(date.to, "dd/MM/yyyy") : 'today';
+        
+        let message = `Hello ${supplier.name},\n\nHere is your account statement from ${fromDate} to ${toDate}:\n\n`;
+        message += `Opening Balance: ${formatCurrency(openingBalance)}\n`;
+        message += `Total Purchases during period: ${formatCurrency(totalPurchases)}\n`;
+        message += `*Closing Balance: ${formatCurrency(closingBalance)}*\n\n`;
+        
+        message += `Thank you,\nOM Saravana Vegetables`;
+
+        const phoneNumber = supplier.contact.replace(/[^0-9]/g, '');
+        const whatsappNumber = phoneNumber.startsWith('91') ? phoneNumber : `91${phoneNumber}`;
+        
+        const encodedMessage = encodeURIComponent(message);
+        window.open(`https://wa.me/${whatsappNumber}?text=${encodedMessage}`, '_blank');
+    }
+
     return (
         <>
             <Header title="Payment Dues" />
@@ -183,7 +212,7 @@ export default function SupplierLedgerPage() {
                         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                             <div className="flex gap-2">
                                 <Button variant="outline" size="icon"><Printer /></Button>
-                                <Button variant="outline" size="icon"><MessageCircle /></Button>
+                                <Button variant="outline" size="icon" onClick={handleWhatsApp}><MessageCircle /></Button>
                                 <Button variant="outline" onClick={handleExport}><Download className="mr-2 h-4 w-4"/> Download</Button>
                             </div>
                             <div className="w-full md:w-auto">
