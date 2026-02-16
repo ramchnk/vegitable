@@ -11,10 +11,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 import Link from 'next/link';
+import { useTransactions } from '@/context/transaction-provider';
+import { BuyersLedgerDialog } from '@/components/settings/buyers-ledger-dialog';
+
 
 const SummaryCard = ({ title, titleClassName, titleTextClassName, children }: { title: string, titleClassName?: string, titleTextClassName?: string, children: React.ReactNode }) => (
     <Card>
@@ -41,6 +44,31 @@ const DefaultSummaryCard = ({ title, children }: { title: string, children: Reac
 
 export default function AccountsPage() {
     const [date, setDate] = useState<Date | undefined>(new Date());
+    const [isBuyerLedgerOpen, setIsBuyerLedgerOpen] = useState(false);
+    const { transactions } = useTransactions();
+
+    const { dailySales, totalSales } = useMemo(() => {
+        if (!date) return { dailySales: [], totalSales: 0 };
+        
+        const salesForDate = transactions.filter(t => 
+            t.type === 'Sale' && 
+            format(new Date(t.date), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
+        );
+        
+        const salesByCustomer = salesForDate.reduce((acc, curr) => {
+            if (!acc[curr.party]) {
+                acc[curr.party] = 0;
+            }
+            acc[curr.party] += curr.amount;
+            return acc;
+        }, {} as Record<string, number>);
+
+        const dailySalesData = Object.entries(salesByCustomer).map(([customer, amount]) => ({ customer, amount }));
+        const total = dailySalesData.reduce((sum, sale) => sum + sale.amount, 0);
+
+        return { dailySales: dailySalesData, totalSales: total };
+    }, [date, transactions]);
+
 
     return (
         <>
@@ -110,15 +138,23 @@ export default function AccountsPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                 <TableRow>
-                                    <TableCell>Hari</TableCell>
-                                    <TableCell className="text-right">₹500</TableCell>
-                                 </TableRow>
+                                 {dailySales.length > 0 ? (
+                                    dailySales.map(sale => (
+                                        <TableRow key={sale.customer}>
+                                            <TableCell>{sale.customer}</TableCell>
+                                            <TableCell className="text-right">{formatCurrency(sale.amount)}</TableCell>
+                                        </TableRow>
+                                    ))
+                                 ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={2} className="text-center">No receipts for this date.</TableCell>
+                                    </TableRow>
+                                 )}
                             </TableBody>
                              <TableFooter>
                                 <TableRow>
                                     <TableCell className="font-bold">Total</TableCell>
-                                    <TableCell className="text-right font-bold">₹500</TableCell>
+                                    <TableCell className="text-right font-bold">{formatCurrency(totalSales)}</TableCell>
                                 </TableRow>
                             </TableFooter>
                         </Table>
@@ -131,7 +167,7 @@ export default function AccountsPage() {
                             <div className="flex justify-between"><span>Opening Balance / Debit</span><span>₹0</span></div>
                              <p className="font-semibold text-primary">Credits</p>
                              <div className="flex justify-between pl-4"><span>Ready Cash</span><span>₹0</span></div>
-                             <div className="flex justify-between pl-4"><span>Money In</span><span>₹500</span></div>
+                             <div className="flex justify-between pl-4"><span>Money In</span><span>{formatCurrency(totalSales)}</span></div>
                              <p className="font-semibold text-destructive">Debit</p>
                              <div className="flex justify-between pl-4"><span>Money Out</span><span>₹0</span></div>
                              <div className="flex justify-between pl-4"><span>Total Expenses</span><span>₹0</span></div>
@@ -176,11 +212,14 @@ export default function AccountsPage() {
                     <Link href="/purchase/suppliers" passHref>
                         <Button variant="outline" className="bg-accent hover:bg-accent/90 text-accent-foreground w-full md:w-auto">Supplier Ledger</Button>
                     </Link>
-                    <Link href="/sales/customers" passHref>
-                         <Button variant="default" className="w-full md:w-auto">Buyer's Ledger</Button>
-                    </Link>
+                    <Button variant="default" className="w-full md:w-auto" onClick={() => setIsBuyerLedgerOpen(true)}>Buyer's Ledger</Button>
                 </div>
             </main>
+            <BuyersLedgerDialog
+                open={isBuyerLedgerOpen}
+                onOpenChange={setIsBuyerLedgerOpen}
+                date={date}
+            />
         </>
     );
 }
