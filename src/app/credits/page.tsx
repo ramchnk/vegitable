@@ -23,34 +23,12 @@ const SupplierIcon = () => {
     )
 }
 
-const BuyerIcon = () => {
-    return (
-        <div className="h-20 w-20">
-            <svg
-                viewBox="0 0 100 100"
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-full w-full"
-                fill="none"
-                strokeWidth="4"
-            >
-                <circle cx="50" cy="30" r="10" stroke="hsl(var(--primary))"/>
-                <path d="M50 40 V 60" stroke="hsl(var(--primary))"/>
-                <path d="M40 85 L 50 60 L 60 85 Z" stroke="hsl(var(--primary))" fill="none" />
-                <path d="M35 50 h -10 a 5 5 0 0 0 -5 5 v 10 a 5 5 0 0 0 5 5 h 10" stroke="orange"/>
-                <path d="M25 50 V 40" stroke="orange"/>
-                <path d="M65 50 h 10 a 5 5 0 0 1 5 5 v 10 a 5 5 0 0 1 -5 5 h -10" stroke="orange"/>
-                <path d="M75 50 V 40" stroke="orange"/>
-            </svg>
-        </div>
-    )
-}
-
 export default function CreditsPage() {
     return (
     <>
       <Header title="Transactions" />
       <main className="flex flex-1 flex-col items-center justify-center p-4 md:p-6">
-        <div className="grid w-full max-w-3xl grid-cols-1 gap-6 md:grid-cols-2">
+        <div className="grid w-full max-w-sm grid-cols-1 gap-6">
           <Link href="/purchase/payments" className="flex">
             <Card className="flex-1 hover:bg-accent transition-colors">
               <CardContent className="flex flex-col items-center justify-center gap-4 p-6 text-center">
@@ -59,17 +37,8 @@ export default function CreditsPage() {
               </CardContent>
             </Card>
           </Link>
-          <Link href="/sales/payments" className="flex">
-            <Card className="flex-1 hover:bg-accent transition-colors">
-              <CardContent className="flex flex-col items-center justify-center gap-4 p-6 text-center">
-                <BuyerIcon />
-                <CardTitle className="text-lg font-semibold">Buyer Transaction</CardTitle>
-              </CardContent>
-            </Card>
-          </Link>
         </div>
       </main>
     </>
   );
 }
-
