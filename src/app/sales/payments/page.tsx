@@ -30,7 +30,7 @@ import {
 import { Download, Edit, MoreHorizontal, ArrowLeft } from "lucide-react";
 import { downloadCsv, formatCurrency } from "@/lib/utils";
 import type { PaymentDetail } from "@/lib/types";
-import { EditPaymentDialog } from "@/components/sales/edit-payment-dialog";
+import { BuyerAdjustmentDialog } from "@/components/sales/buyer-adjustment-dialog";
 import { useTransactions } from "@/context/transaction-provider";
 
 
@@ -143,7 +143,7 @@ export default function CustomerPaymentsPage() {
               </Table>
             </CardContent>
           </Card>
-        <EditPaymentDialog 
+        <BuyerAdjustmentDialog 
             payment={editPayment}
             open={!!editPayment}
             onOpenChange={(open) => !open && setEditPayment(null)}
