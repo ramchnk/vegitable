@@ -30,65 +30,45 @@ interface TransactionContextType {
 const TransactionContext = createContext<TransactionContextType | undefined>(undefined);
 
 export function TransactionProvider({ children }: { children: React.ReactNode }) {
-    const [transactions, setTransactions] = useState<Transaction[]>(() => {
-        if (typeof window !== 'undefined') {
-            try {
-                const stored = window.localStorage.getItem('transactions');
-                return stored ? JSON.parse(stored) : initialTransactions;
-            } catch (error) {
-                console.error("Failed to load transactions from localStorage", error);
-            }
-        }
-        return initialTransactions;
-    });
+    const [transactions, setTransactions] = useState<Transaction[]>(() => initialTransactions);
+    const [supplierPayments, setSupplierPayments] = useState<PaymentDetail[]>(() => initialSupplierPaymentDetails);
+    const [customerPayments, setCustomerPayments] = useState<PaymentDetail[]>(() => initialCustomerPaymentDetails);
+    const [suppliers, setSuppliers] = useState<Supplier[]>(() => initialSuppliers);
+    const [customers, setCustomers] = useState<Customer[]>(() => initialCustomers);
 
-    const [supplierPayments, setSupplierPayments] = useState<PaymentDetail[]>(() => {
-        if (typeof window !== 'undefined') {
-            try {
-                const stored = window.localStorage.getItem('supplierPayments');
-                return stored ? JSON.parse(stored) : initialSupplierPaymentDetails;
-            } catch (error) {
-                console.error("Failed to load supplierPayments from localStorage", error);
-            }
+    useEffect(() => {
+        try {
+            const stored = window.localStorage.getItem('transactions');
+            if (stored) setTransactions(JSON.parse(stored));
+        } catch (error) {
+            console.error("Failed to load transactions from localStorage", error);
         }
-        return initialSupplierPaymentDetails;
-    });
+        try {
+            const stored = window.localStorage.getItem('supplierPayments');
+            if (stored) setSupplierPayments(JSON.parse(stored));
+        } catch (error) {
+            console.error("Failed to load supplierPayments from localStorage", error);
+        }
+        try {
+            const stored = window.localStorage.getItem('customerPayments');
+            if (stored) setCustomerPayments(JSON.parse(stored));
+        } catch (error) {
+            console.error("Failed to load customerPayments from localStorage", error);
+        }
+        try {
+            const stored = window.localStorage.getItem('suppliers');
+            if(stored) setSuppliers(JSON.parse(stored));
+        } catch (error) {
+            console.error("Failed to load suppliers from localStorage", error);
+        }
+        try {
+            const stored = window.localStorage.getItem('customers');
+            if (stored) setCustomers(JSON.parse(stored));
+        } catch (error) {
+            console.error("Failed to load customers from localStorage", error);
+        }
+    }, []);
 
-    const [customerPayments, setCustomerPayments] = useState<PaymentDetail[]>(() => {
-        if (typeof window !== 'undefined') {
-            try {
-                const stored = window.localStorage.getItem('customerPayments');
-                return stored ? JSON.parse(stored) : initialCustomerPaymentDetails;
-            } catch (error) {
-                console.error("Failed to load customerPayments from localStorage", error);
-            }
-        }
-        return initialCustomerPaymentDetails;
-    });
-
-    const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
-        if (typeof window !== 'undefined') {
-            try {
-                const stored = window.localStorage.getItem('suppliers');
-                return stored ? JSON.parse(stored) : initialSuppliers;
-            } catch (error) {
-                console.error("Failed to load suppliers from localStorage", error);
-            }
-        }
-        return initialSuppliers;
-    });
-
-    const [customers, setCustomers] = useState<Customer[]>(() => {
-        if (typeof window !== 'undefined') {
-            try {
-                const stored = window.localStorage.getItem('customers');
-                return stored ? JSON.parse(stored) : initialCustomers;
-            } catch (error) {
-                console.error("Failed to load customers from localStorage", error);
-            }
-        }
-        return initialCustomers;
-    });
 
     useEffect(() => {
         try {
@@ -213,19 +193,23 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
                 if (existingPaymentIndex > -1) {
                     const existingPayment = updatedPayments[existingPaymentIndex];
                     existingPayment.totalAmount += totalAmount;
+                    if (paymentMethod !== 'Credit') {
+                        existingPayment.paidAmount += totalAmount;
+                    }
                     existingPayment.dueAmount = existingPayment.totalAmount - existingPayment.paidAmount;
+                     if (existingPayment.dueAmount < 0) existingPayment.dueAmount = 0;
                     existingPayment.paymentMethod = paymentMethod;
     
                     return updatedPayments;
                 } else {
                     const newPaymentId = (Math.max(0, ...prev.map(p => parseInt(p.id) || 0)) + 1).toString();
-                     const newPayment = {
+                     const newPayment: PaymentDetail = {
                         id: newPaymentId,
                         partyId: supplier!.id,
                         partyName: supplier!.name,
                         totalAmount: totalAmount,
-                        paidAmount: 0,
-                        dueAmount: totalAmount,
+                        paidAmount: paymentMethod !== 'Credit' ? totalAmount : 0,
+                        dueAmount: paymentMethod === 'Credit' ? totalAmount : 0,
                         paymentMethod: paymentMethod,
                     };
                     return [...prev, newPayment];
