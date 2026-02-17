@@ -1,0 +1,180 @@
+{
+  "entities": {
+    "product": {
+      "title": "Product",
+      "description": "A product in the inventory.",
+      "type": "object",
+      "properties": {
+        "itemCode": {
+          "type": "string",
+          "description": "The item code of the product."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the product."
+        },
+        "rate1": {
+          "type": "number",
+          "description": "Rate 1 for the product."
+        },
+        "rate2": {
+          "type": "number",
+          "description": "Rate 2 for the product."
+        },
+        "rate3": {
+          "type": "number",
+          "description": "Rate 3 for the product."
+        }
+      },
+      "required": ["itemCode", "name", "rate1", "rate2", "rate3"]
+    },
+    "supplier": {
+      "title": "Supplier",
+      "description": "A supplier of products.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the supplier."
+        },
+        "contact": {
+          "type": "string",
+          "description": "The contact number of the supplier."
+        },
+        "address": {
+          "type": "string",
+          "description": "The address of the supplier."
+        }
+      },
+      "required": ["name"]
+    },
+    "customer": {
+      "title": "Customer",
+      "description": "A customer who buys products.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the customer."
+        },
+        "contact": {
+          "type": "string",
+          "description": "The contact number of the customer."
+        },
+        "address": {
+          "type": "string",
+          "description": "The address of the customer."
+        }
+      },
+      "required": ["name"]
+    },
+    "transaction": {
+      "title": "Transaction",
+      "description": "A sale or purchase transaction.",
+      "type": "object",
+      "properties": {
+        "date": {
+          "type": "string",
+          "format": "date"
+        },
+        "party": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["Sale", "Purchase"]
+        },
+        "item": {
+          "type": "string"
+        },
+        "amount": {
+          "type": "number"
+        },
+        "payment": {
+          "type": "string"
+        }
+      },
+      "required": ["date", "party", "type", "item", "amount", "payment"]
+    },
+    "paymentDetail": {
+      "title": "Payment Detail",
+      "description": "Details of payments for a party.",
+      "type": "object",
+      "properties": {
+        "partyId": {
+          "type": "string"
+        },
+        "partyName": {
+          "type": "string"
+        },
+        "totalAmount": {
+          "type": "number"
+        },
+        "paidAmount": {
+          "type": "number"
+        },
+        "dueAmount": {
+          "type": "number"
+        },
+        "paymentMethod": {
+          "type": "string"
+        }
+      },
+      "required": ["partyId", "partyName", "totalAmount", "paidAmount", "dueAmount"]
+    },
+    "dailyAccountSummary": {
+        "title": "Daily Account Summary",
+        "description": "A summary of daily accounts.",
+        "type": "object",
+        "properties": {
+            "date": {
+                "type": "string",
+                "format": "date"
+            },
+            "openingBalance": {
+                "type": "number"
+            },
+            "totalExpenses": {
+                "type": "number"
+            },
+            "finalNote": {
+                "type": "string"
+            }
+        },
+        "required": ["date", "openingBalance", "totalExpenses"]
+    }
+  },
+  "auth": {
+    "providers": ["anonymous"]
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/product" },
+      "description": "Stores product information."
+    },
+    "/suppliers/{supplierId}": {
+      "schema": { "$ref": "#/entities/supplier" },
+      "description": "Stores supplier information."
+    },
+    "/customers/{customerId}": {
+      "schema": { "$ref": "#/entities/customer" },
+      "description": "Stores customer information."
+    },
+    "/transactions/{transactionId}": {
+      "schema": { "$ref": "#/entities/transaction" },
+      "description": "Stores all transactions."
+    },
+    "/supplierPayments/{paymentId}": {
+      "schema": { "$ref": "#/entities/paymentDetail" },
+      "description": "Stores payment details for suppliers."
+    },
+    "/customerPayments/{paymentId}": {
+      "schema": { "$ref": "#/entities/paymentDetail" },
+      "description": "Stores payment details for customers."
+    },
+    "/dailySummaries/{summaryId}": {
+        "schema": { "$ref": "#/entities/dailyAccountSummary" },
+        "description": "Stores daily account summaries."
+    }
+  }
+}
