@@ -58,7 +58,7 @@ export type PaymentDetail = {
 }
 
 export type Transaction = {
-    id: number;
+    id: string;
     date: string;
     party: string;
     type: "Sale" | "Purchase";

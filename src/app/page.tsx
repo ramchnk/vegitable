@@ -36,7 +36,7 @@ export default function DashboardPage() {
 
     const recentTransactions = useMemo(() => {
       return transactions.slice(-5).reverse().map(t => ({
-        id: t.id.toString(),
+        id: t.id,
         customer: t.party,
         amount: t.amount,
         status: t.payment === 'Credit' ? 'Credit' : 'Paid'
