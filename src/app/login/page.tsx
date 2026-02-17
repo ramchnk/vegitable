@@ -1,14 +1,37 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword } from 'firebase/auth';
+import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebaseApp } from '@/firebase/provider';
+import { motion } from 'framer-motion';
+
+const FloatingVeggie = ({ emoji, delay, duration, x, y }: { emoji: string; delay: number; duration: number; x: number; y: number }) => (
+    <motion.div
+        initial={{ opacity: 0, x: 0, y: 0 }}
+        animate={{
+            opacity: [0.3, 0.6, 0.3],
+            x: [0, x, 0],
+            y: [0, y, 0],
+            rotate: [0, 360, 0]
+        }}
+        transition={{
+            duration: duration,
+            repeat: Infinity,
+            delay: delay,
+            ease: "easeInOut"
+        }}
+        className="absolute text-6xl pointer-events-none select-none z-0"
+        style={{ left: `${Math.random() * 80 + 10}%`, top: `${Math.random() * 80 + 10}%` }}
+    >
+        {emoji}
+    </motion.div>
+);
 
 export default function LoginPage() {
     const [email, setEmail] = useState('');
@@ -18,24 +41,11 @@ export default function LoginPage() {
     const { toast } = useToast();
     const app = useFirebaseApp();
     const auth = getAuth(app);
+    const [mounted, setMounted] = useState(false);
 
-    const handleGoogleSignIn = async () => {
-        setLoading(true);
-        const provider = new GoogleAuthProvider();
-        try {
-            await signInWithPopup(auth, provider);
-            router.push('/');
-        } catch (error: any) {
-            console.error(error);
-            toast({
-                title: "Login Failed",
-                description: error.message,
-                variant: "destructive"
-            });
-        } finally {
-            setLoading(false);
-        }
-    };
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     const handleEmailSignIn = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -55,82 +65,105 @@ export default function LoginPage() {
         }
     };
 
+    if (!mounted) return null;
+
+    const veggies = ['🥕', '🍅', '🥒', '🍆', '🥬', '🥦', '🌽', '🫑', '🧅', '🥔', '🌶️', '🥑'];
+
     return (
-        <div className="flex min-h-screen items-center justify-center bg-gray-100 p-4">
-            <Card className="w-full max-w-md">
-                <CardHeader className="space-y-1">
-                    <CardTitle className="text-2xl font-bold">Sign in</CardTitle>
-                    <CardDescription>
-                        Choose your preferred sign in method
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="grid gap-4">
-                    <div className="grid grid-cols-1 gap-6">
-                        <Button variant="outline" onClick={handleGoogleSignIn} disabled={loading}>
-                            <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
-                                <path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path>
-                            </svg>
-                            Google
-                        </Button>
-                    </div>
-                    <div className="relative">
-                        <div className="absolute inset-0 flex items-center">
-                            <span className="w-full border-t" />
-                        </div>
-                        <div className="relative flex justify-center text-xs uppercase">
-                            <span className="bg-white px-2 text-muted-foreground">
-                                Or continue with
-                            </span>
-                        </div>
-                    </div>
-                    <form onSubmit={handleEmailSignIn}>
-                        <div className="grid gap-2">
-                            <div className="grid gap-1">
-                                <Label htmlFor="email">Email</Label>
-                                <Input
-                                    id="email"
-                                    placeholder="name@example.com"
-                                    type="email"
-                                    autoCapitalize="none"
-                                    autoComplete="email"
-                                    autoCorrect="off"
+        <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-indigo-900 via-purple-900 to-violet-950 p-4">
+
+            {/* Animated Background Elements */}
+            <div className="absolute inset-0 w-full h-full overflow-hidden">
+                {veggies.map((veg, i) => (
+                    <FloatingVeggie
+                        key={i}
+                        emoji={veg}
+                        delay={i * 0.5}
+                        duration={15 + Math.random() * 10}
+                        x={Math.random() * 100 - 50}
+                        y={Math.random() * 100 - 50}
+                    />
+                ))}
+            </div>
+
+            <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="z-10 w-full max-w-md"
+            >
+                <Card className="w-full backdrop-blur-xl bg-white/10 border-white/20 text-white shadow-2xl">
+                    <CardHeader className="space-y-1 text-center">
+                        <motion.div
+                            initial={{ y: -20, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            transition={{ delay: 0.2 }}
+                        >
+                            <CardTitle className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-green-400 to-emerald-500">
+                                Fresh Login
+                            </CardTitle>
+                        </motion.div>
+                        <CardDescription className="text-gray-300">
+                            Welcome back to your vegetable paradise
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid gap-4">
+
+                        <form onSubmit={handleEmailSignIn}>
+                            <div className="grid gap-4">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="email" className="text-gray-200">Email</Label>
+                                    <Input
+                                        id="email"
+                                        placeholder="name@example.com"
+                                        type="email"
+                                        autoCapitalize="none"
+                                        autoComplete="email"
+                                        autoCorrect="off"
+                                        disabled={loading}
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        className="bg-white/5 border-white/10 text-white placeholder:text-gray-400 focus:border-green-500/50 focus:ring-green-500/20"
+                                    />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="password" className="text-gray-200">Password</Label>
+                                    <Input
+                                        id="password"
+                                        placeholder="Password"
+                                        type="password"
+                                        autoComplete="current-password"
+                                        disabled={loading}
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        className="bg-white/5 border-white/10 text-white placeholder:text-gray-400 focus:border-green-500/50 focus:ring-green-500/20"
+                                    />
+                                </div>
+                                <Button
                                     disabled={loading}
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                />
+                                    type="submit"
+                                    className="mt-2 w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold shadow-lg shadow-green-900/20 transition-all duration-300"
+                                >
+                                    {loading ? "Signing In..." : "Sign In"}
+                                </Button>
                             </div>
-                            <div className="grid gap-1">
-                                <Label htmlFor="password">Password</Label>
-                                <Input
-                                    id="password"
-                                    placeholder="Password"
-                                    type="password"
-                                    autoComplete="current-password"
-                                    disabled={loading}
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                />
-                            </div>
-                            <Button disabled={loading} type="submit" className="mt-4 w-full">
-                                {loading ? "Signing In..." : "Sign In with Email"}
-                            </Button>
-                        </div>
-                    </form>
-                </CardContent>
-                <CardFooter>
-                    <p className="px-8 text-center text-sm text-muted-foreground">
-                        By clicking continue, you agree to our{" "}
-                        <a href="/terms" className="underline underline-offset-4 hover:text-primary">
-                            Terms of Service
-                        </a>{" "}
-                        and{" "}
-                        <a href="/privacy" className="underline underline-offset-4 hover:text-primary">
-                            Privacy Policy
-                        </a>
-                        .
-                    </p>
-                </CardFooter>
-            </Card>
+                        </form>
+                    </CardContent>
+                    <CardFooter>
+                        <p className="w-full text-center text-sm text-gray-400">
+                            By clicking continue, you agree to our{" "}
+                            <a href="/terms" className="underline underline-offset-4 hover:text-green-400 transition-colors">
+                                Terms
+                            </a>{" "}
+                            and{" "}
+                            <a href="/privacy" className="underline underline-offset-4 hover:text-green-400 transition-colors">
+                                Privacy Policy
+                            </a>
+                            .
+                        </p>
+                    </CardFooter>
+                </Card>
+            </motion.div>
         </div>
     );
 }

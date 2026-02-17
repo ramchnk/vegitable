@@ -11,6 +11,8 @@ export const metadata: Metadata = {
   description: 'Billing software for Vegetable wholesale business',
 };
 
+import { firebaseConfig } from '@/firebase/config';
+
 export default function RootLayout({
   children,
 }: Readonly<{
