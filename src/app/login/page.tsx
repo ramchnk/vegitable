@@ -94,15 +94,7 @@ export default function LoginPage() {
             >
                 <Card className="w-full backdrop-blur-xl bg-white/10 border-white/20 text-white shadow-2xl">
                     <CardHeader className="space-y-1 text-center">
-                        <motion.div
-                            initial={{ y: -20, opacity: 0 }}
-                            animate={{ y: 0, opacity: 1 }}
-                            transition={{ delay: 0.2 }}
-                        >
-                            <CardTitle className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-green-400 to-emerald-500">
-                                Fresh Login
-                            </CardTitle>
-                        </motion.div>
+
                         <CardDescription className="text-gray-300">
                             Welcome back to your vegetable paradise
                         </CardDescription>

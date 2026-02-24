@@ -68,6 +68,7 @@ import { cn, formatCurrency } from "@/lib/utils";
 import { useTransactions } from "@/context/transaction-provider";
 
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/context/language-context";
 import { Users, CreditCard } from "lucide-react";
 
 const saleItemSchema = z.object({
@@ -91,6 +92,7 @@ type SalesFormValues = z.infer<typeof salesFormSchema>;
 export default function SalesPage() {
   const { customers, customerPayments, addTransaction, products, addCustomer, deleteCustomer, loading, transactions } = useTransactions(); // Added transactions and deleteCustomer
   const { toast } = useToast();
+  const { t } = useLanguage();
   const [outstanding, setOutstanding] = useState(0);
   const creatingRef = useRef(false);
 
@@ -105,7 +107,7 @@ export default function SalesPage() {
       customerId: "",
       salesDate: new Date(),
       items: [],
-      amountPaid: 0,
+      amountPaid: undefined,
       paymentType: "Cash",
     },
   });
@@ -228,7 +230,7 @@ export default function SalesPage() {
       customerId: data.customerId, // Keep customer selected
       salesDate: new Date(),
       items: [],
-      amountPaid: 0,
+      amountPaid: undefined,
       paymentType: "Cash",
     });
   }
@@ -469,18 +471,18 @@ export default function SalesPage() {
 
   return (
     <>
-      <Header title="New Sales Entry">
+      <Header title={t('forms.new_sales_entry')}>
         <div className="flex items-center gap-2">
           <Link href="/sales/customers">
-            <Button size="sm" variant="outline" className="gap-1">
+            <Button size="sm" className="gap-1 bg-blue-600 hover:bg-blue-700 text-white border-none shadow-sm">
               <Users className="h-4 w-4" />
-              Customers
+              {t('nav.customers')}
             </Button>
           </Link>
           <Link href="/sales/payments">
-            <Button size="sm" variant="outline" className="gap-1">
+            <Button size="sm" className="gap-1 bg-yellow-400 hover:bg-yellow-500 text-yellow-950 border-none shadow-sm">
               <CreditCard className="h-4 w-4" />
-              Payments
+              {t('nav.payments')}
             </Button>
           </Link>
         </div>
@@ -497,7 +499,7 @@ export default function SalesPage() {
                     name="customerId"
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
-                        <FormLabel className="font-bold text-primary">Customer</FormLabel>
+                        <FormLabel className="font-bold text-primary">{t('forms.customer')}</FormLabel>
                         <Popover>
                           <PopoverTrigger asChild>
                             <FormControl>
@@ -512,17 +514,17 @@ export default function SalesPage() {
                                 {field.value
                                   ? customers.find((c) => c.id === field.value)?.name
                                     ? `${customers.find((c) => c.id === field.value)?.code ? customers.find((c) => c.id === field.value)?.code + ' - ' : ''}${customers.find((c) => c.id === field.value)?.name}`
-                                    : "Select customer"
-                                  : "Select customer"}
+                                    : t('forms.select_customer')
+                                  : t('forms.select_customer')}
                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                               </Button>
                             </FormControl>
                           </PopoverTrigger>
                           <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                             <Command>
-                              <CommandInput placeholder="Search customer..." />
+                              <CommandInput placeholder={t('forms.search_customer')} />
                               <CommandList>
-                                <CommandEmpty>No customer found.</CommandEmpty>
+                                <CommandEmpty>{t('forms.no_customer_found')}</CommandEmpty>
                                 <CommandGroup>
                                   {customers.map((customer) => (
                                     <CommandItem
@@ -560,7 +562,7 @@ export default function SalesPage() {
                     name="salesDate"
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
-                        <FormLabel className="font-bold text-primary">Sales Date</FormLabel>
+                        <FormLabel className="font-bold text-primary">{t('forms.sales_date')}</FormLabel>
                         <Popover>
                           <PopoverTrigger asChild>
                             <FormControl>
@@ -572,7 +574,7 @@ export default function SalesPage() {
                                   !field.value && "text-muted-foreground"
                                 )}
                               >
-                                {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                {field.value ? format(field.value, "PPP") : <span>{t('date.pick_date')}</span>}
                                 <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                               </Button>
                             </FormControl>
@@ -599,9 +601,9 @@ export default function SalesPage() {
                   <div className="rounded-lg border p-4 bg-muted/50 col-span-1 md:col-span-2">
                     <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4">
                       <div>
-                        <Label className="text-muted-foreground font-bold text-primary">Bill Number</Label>
+                        <Label className="text-muted-foreground font-bold text-primary">{t('forms.bill_number')}</Label>
                         <div className="text-2xl font-bold">#{
-                          (useTransactions().transactions.reduce((max, t) => (t.billNumber || 0) > max ? (t.billNumber || 0) : max, 0) + 1)
+                          (transactions.reduce((max, t) => (t.billNumber || 0) > max ? (t.billNumber || 0) : max, 0) + 1)
                         }</div>
                       </div>
                       <FormField
@@ -620,7 +622,7 @@ export default function SalesPage() {
                                     <RadioGroupItem value="Cash" />
                                   </FormControl>
                                   <FormLabel className="font-bold text-primary cursor-pointer">
-                                    Cash Bill
+                                    {t('forms.cash_bill')}
                                   </FormLabel>
                                 </FormItem>
                                 <FormItem className="flex items-center space-x-2 space-y-0">
@@ -628,7 +630,7 @@ export default function SalesPage() {
                                     <RadioGroupItem value="Credit" />
                                   </FormControl>
                                   <FormLabel className="font-bold text-primary cursor-pointer">
-                                    Credit Bill
+                                    {t('forms.credit_bill')}
                                   </FormLabel>
                                 </FormItem>
                               </RadioGroup>
@@ -644,7 +646,7 @@ export default function SalesPage() {
                 <div className="space-y-2 rounded-lg border p-4">
                   <div className="grid grid-cols-12 gap-2 items-end">
                     <div className="col-span-5">
-                      <Label className="font-bold text-primary">Item Type</Label>
+                      <Label className="font-bold text-primary">{t('forms.item_type')}</Label>
                       <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
                         <PopoverTrigger asChild>
                           <Button
@@ -657,16 +659,16 @@ export default function SalesPage() {
                             {newItemId
                               ? products.find((p) => p.id === newItemId)?.name
                                 ? `${products.find((p) => p.id === newItemId)?.itemCode} - ${products.find((p) => p.id === newItemId)?.name}`
-                                : "Select Item Type"
-                              : "Select Item Type"}
+                                : t('forms.select_item')
+                              : t('forms.select_item')}
                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                           <Command>
-                            <CommandInput placeholder="Search item..." />
+                            <CommandInput placeholder={t('forms.search_item')} />
                             <CommandList>
-                              <CommandEmpty>No item found.</CommandEmpty>
+                              <CommandEmpty>{t('forms.no_item_found')}</CommandEmpty>
                               <CommandGroup>
                                 {products.map((product) => (
                                   <CommandItem
@@ -694,7 +696,7 @@ export default function SalesPage() {
                       </Popover>
                     </div>
                     <div className="col-span-3">
-                      <Label className="font-bold text-primary">Weight/KG</Label>
+                      <Label className="font-bold text-primary">{t('forms.weight_kg')}</Label>
                       <Input
                         ref={weightRef}
                         placeholder="e.g. 100"
@@ -710,7 +712,7 @@ export default function SalesPage() {
                       />
                     </div>
                     <div className="col-span-3">
-                      <Label className="font-bold text-primary">Price</Label>
+                      <Label className="font-bold text-primary">{t('forms.price')}</Label>
                       <Input
                         ref={priceRef}
                         placeholder="e.g. 80"
@@ -729,7 +731,7 @@ export default function SalesPage() {
                     <div className="col-span-1">
                       <Button type="button" size="icon" onClick={handleAddItem} className="w-full">
                         <Plus className="h-4 w-4" />
-                        <span className="sr-only">Add Item</span>
+                        <span className="sr-only">{t('forms.add_item')}</span>
                       </Button>
                     </div>
                   </div>
@@ -737,22 +739,22 @@ export default function SalesPage() {
 
 
                 <div>
-                  <FormLabel className="font-bold text-primary">Items</FormLabel>
+                  <FormLabel className="font-bold text-primary">{t('forms.items')}</FormLabel>
                   <div className="rounded-md border">
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Item</TableHead>
-                          <TableHead className="text-right">Weight / KG</TableHead>
-                          <TableHead className="text-right">Price</TableHead>
-                          <TableHead className="text-right">Total</TableHead>
-                          <TableHead><span className="sr-only">Remove</span></TableHead>
+                          <TableHead>{t('forms.item')}</TableHead>
+                          <TableHead className="text-right">{t('forms.weight_kg')}</TableHead>
+                          <TableHead className="text-right">{t('forms.price')}</TableHead>
+                          <TableHead className="text-right">{t('forms.total')}</TableHead>
+                          <TableHead><span className="sr-only">{t('forms.remove_item')}</span></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {fields.length === 0 && (
                           <TableRow>
-                            <TableCell colSpan={5} className="text-center">No items added.</TableCell>
+                            <TableCell colSpan={5} className="text-center">{t('forms.no_items')}</TableCell>
                           </TableRow>
                         )}
                         {fields.map((field, index) => {
@@ -780,22 +782,22 @@ export default function SalesPage() {
                 <div className="flex justify-end">
                   <div className="w-full max-w-sm space-y-2">
                     <div className="grid grid-cols-2 gap-4 items-center">
-                      <span className="font-medium text-muted-foreground">Total</span>
+                      <span className="font-medium text-muted-foreground">{t('forms.total')}</span>
                       <span className="text-right font-medium">{formatCurrency(totalCost)}</span>
                     </div>
                     <div className="grid grid-cols-2 gap-4 items-center">
-                      <span className="font-medium text-muted-foreground">Net Amount</span>
+                      <span className="font-medium text-muted-foreground">{t('forms.net_amount')}</span>
                       <span className="text-right font-medium">{formatCurrency(netAmount)}</span>
                     </div>
                     <div className="grid grid-cols-2 gap-4 items-center">
-                      <FormLabel htmlFor="amountPaid" className="font-bold text-primary">Debit</FormLabel>
+                      <FormLabel htmlFor="amountPaid" className="font-bold text-primary">{t('forms.debit')}</FormLabel>
                       <FormField
                         control={form.control}
                         name="amountPaid"
                         render={({ field }) => (
                           <FormItem>
                             <FormControl>
-                              <Input id="amountPaid" type="number" className="text-right" {...field} />
+                              <Input id="amountPaid" type="number" className="text-right" {...field} value={field.value ?? ""} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -803,7 +805,7 @@ export default function SalesPage() {
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-4 items-center font-bold">
-                      <span>Total</span>
+                      <span>{t('forms.total')}</span>
                       <span className="text-right">{formatCurrency(balanceAmount)}</span>
                     </div>
                   </div>
@@ -811,7 +813,7 @@ export default function SalesPage() {
 
               </CardContent>
               <CardFooter className="gap-2">
-                <Button type="submit" size="lg">Submit Sales</Button>
+                <Button type="submit" size="lg">{t('forms.submit_sales')}</Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button type="button" variant="outline" size="icon">

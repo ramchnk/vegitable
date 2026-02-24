@@ -27,6 +27,7 @@ import { useState } from "react";
 import { useTransactions } from "@/context/transaction-provider";
 import { User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/context/language-context";
 
 const supplierFormSchema = z.object({
   name: z.string().min(1, "Supplier Name Required"),
@@ -40,6 +41,7 @@ type SupplierFormValues = z.infer<typeof supplierFormSchema>;
 export function AddSupplierDialog({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const { addSupplier } = useTransactions();
+  const { t } = useLanguage();
 
   const form = useForm<SupplierFormValues>({
     resolver: zodResolver(supplierFormSchema),
@@ -84,7 +86,7 @@ export function AddSupplierDialog({ children }: { children: React.ReactNode }) {
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>New Supplier Inclusion</DialogTitle>
+          <DialogTitle>{t('suppliers.new_supplier_title')}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -93,9 +95,9 @@ export function AddSupplierDialog({ children }: { children: React.ReactNode }) {
               name="code"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Code</FormLabel>
+                  <FormLabel>{t('suppliers.code_label')}</FormLabel>
                   <FormControl>
-                    <Input placeholder="Supplier Code" {...field} />
+                    <Input placeholder={t('suppliers.code_label')} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -108,10 +110,10 @@ export function AddSupplierDialog({ children }: { children: React.ReactNode }) {
                 <FormItem>
                   <FormLabel className="flex items-center gap-2">
                     <User className="h-4 w-4" />
-                    Supplier Name
+                    {t('suppliers.name_label')}
                   </FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter Supplier name" {...field} />
+                    <Input placeholder={t('suppliers.name_label')} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -122,9 +124,9 @@ export function AddSupplierDialog({ children }: { children: React.ReactNode }) {
               name="contact"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Phone Number</FormLabel>
+                  <FormLabel>{t('suppliers.phone_label')}</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter phone number" {...field} />
+                    <Input placeholder={t('suppliers.phone_label')} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -135,9 +137,9 @@ export function AddSupplierDialog({ children }: { children: React.ReactNode }) {
               name="address"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Address</FormLabel>
+                  <FormLabel>{t('suppliers.address_label')}</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter address" {...field} />
+                    <Input placeholder={t('suppliers.address_label')} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -146,11 +148,11 @@ export function AddSupplierDialog({ children }: { children: React.ReactNode }) {
             <DialogFooter>
               <DialogClose asChild>
                 <Button type="button" variant="secondary">
-                  Close
+                  {t('actions.cancel')}
                 </Button>
               </DialogClose>
               <Button type="submit" disabled={isLoading}>
-                {isLoading ? "Saving..." : "Save changes"}
+                {isLoading ? t('suppliers.saving') : t('suppliers.save_changes')}
               </Button>
             </DialogFooter>
           </form>

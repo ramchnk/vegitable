@@ -27,9 +27,11 @@ import { formatCurrency } from "@/lib/utils";
 import type { PaymentDetail, Customer } from "@/lib/types";
 import { AddCustomerDialog } from "@/components/sales/add-customer-dialog";
 import { EditCustomerDialog } from "@/components/sales/edit-customer-dialog";
+import { useLanguage } from "@/context/language-context";
 
 export default function SalesCustomersPage() {
   const { customerPayments, updateCustomer, updateCustomerPayment, customers } = useTransactions();
+  const { t } = useLanguage();
   const [searchTerm, setSearchTerm] = useState("");
   const [editingCustomer, setEditingCustomer] = useState<PaymentDetail | null>(null);
 
@@ -50,23 +52,34 @@ export default function SalesCustomersPage() {
 
   return (
     <>
-      <Header title="Customer" />
+      <Header title={t('nav.customers')} />
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6">
         <div className="grid grid-cols-2 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-normal">Total Customers Count</CardTitle>
+          <Card className="relative overflow-hidden border-none shadow-lg bg-white/40 backdrop-blur-md group hover:shadow-xl transition-all duration-300">
+            {/* Background Decoration */}
+            <div className="absolute inset-0 z-0 opacity-20 group-hover:opacity-30 transition-opacity"
+              style={{ background: 'linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%)' }} />
+            <div className="absolute -right-8 -top-8 w-24 h-24 rounded-full bg-blue-400/20 blur-2xl z-0" />
+
+            <CardHeader className="pb-2 relative z-10">
+              <CardTitle className="text-sm font-bold text-blue-900/60 uppercase tracking-wider">{t('dashboard.customers')} Count</CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">{customers.length}</p>
+            <CardContent className="relative z-10">
+              <p className="text-3xl font-black text-blue-950">{customers.length}</p>
             </CardContent>
           </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-normal">Total Outstanding</CardTitle>
+
+          <Card className="relative overflow-hidden border-none shadow-lg bg-white/40 backdrop-blur-md group hover:shadow-xl transition-all duration-300">
+            {/* Background Decoration */}
+            <div className="absolute inset-0 z-0 opacity-20 group-hover:opacity-30 transition-opacity"
+              style={{ background: 'linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%)' }} />
+            <div className="absolute -left-8 -bottom-8 w-24 h-24 rounded-full bg-sky-400/20 blur-2xl z-0" />
+
+            <CardHeader className="pb-2 relative z-10">
+              <CardTitle className="text-sm font-bold text-sky-900/60 uppercase tracking-wider">{t('dashboard.total_outstanding_balance')}</CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">{formatCurrency(totalOutstanding)}</p>
+            <CardContent className="relative z-10">
+              <p className="text-3xl font-black text-sky-950">{formatCurrency(totalOutstanding)}</p>
             </CardContent>
           </Card>
         </div>
@@ -74,10 +87,10 @@ export default function SalesCustomersPage() {
         <Card>
           <CardHeader>
             <div className="flex justify-between items-center">
-              <CardTitle className="text-primary">Customer List</CardTitle>
+              <CardTitle className="text-primary">{t('nav.customers')} List</CardTitle>
               <div className="flex items-center gap-2">
                 <Input
-                  placeholder="Search"
+                  placeholder={t('actions.search')}
                   className="w-48"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -85,7 +98,7 @@ export default function SalesCustomersPage() {
                 <AddCustomerDialog>
                   <Button>
                     <Plus className="h-4 w-4 mr-2" />
-                    New
+                    {t('actions.new')}
                   </Button>
                 </AddCustomerDialog>
               </div>
@@ -98,22 +111,22 @@ export default function SalesCustomersPage() {
                   <TableRow>
                     <TableHead>
                       <div className="flex items-center gap-2">
-                        <Users className="h-4 w-4" /> Code
+                        <Users className="h-4 w-4" /> {t('products.item_code')}
                       </div>
                     </TableHead>
                     <TableHead>
                       <div className="flex items-center gap-2">
-                        Customer
+                        {t('forms.customer')}
                       </div>
                     </TableHead>
                     <TableHead className="text-right">
                       <div className="flex items-center gap-2 justify-end">
-                        <Wallet className="h-4 w-4" /> Outstanding Amount
+                        <Wallet className="h-4 w-4" /> {t('forms.outstanding')}
                       </div>
                     </TableHead>
                     <TableHead className="text-center">
                       <div className="flex items-center gap-2 justify-center">
-                        <Folder className="h-4 w-4" /> Ledger
+                        <Folder className="h-4 w-4" /> {t('nav.accounts')}
                       </div>
                     </TableHead>
                   </TableRow>
@@ -141,7 +154,7 @@ export default function SalesCustomersPage() {
                         <TableCell className="text-center">
                           <Link href={`/sales/customers/${customerPayment.partyId}`}>
                             <Button variant="outline" size="sm">
-                              View
+                              {t('actions.view')}
                             </Button>
                           </Link>
                         </TableCell>

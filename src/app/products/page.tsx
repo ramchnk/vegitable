@@ -28,10 +28,12 @@ import { useTransactions } from "@/context/transaction-provider";
 import { downloadCsv, formatCurrency } from "@/lib/utils";
 import { AddProductDialog } from "@/components/products/add-product-dialog";
 import { EditProductDialog } from "@/components/products/edit-product-dialog";
+import { useLanguage } from "@/context/language-context";
 import { useState } from "react";
 
 export default function ProductsPage() {
   const { products, deleteProduct } = useTransactions();
+  const { t } = useLanguage();
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [openEditDialog, setOpenEditDialog] = useState(false);
 
@@ -52,37 +54,37 @@ export default function ProductsPage() {
 
   return (
     <>
-      <Header title="Products">
+      <Header title={t('products.title')}>
         <div className="flex items-center gap-2">
           <AddProductDialog>
             <Button size="sm" className="gap-1">
               <PlusCircle className="h-4 w-4" />
-              Add Product
+              {t('products.add_product')}
             </Button>
           </AddProductDialog>
-          <Button size="sm" variant="outline" className="gap-1" onClick={handleExport}>
+          <Button size="sm" className="gap-1 bg-[#FBCFE8] hover:bg-[#F9A8D4] text-[#831843] border-none shadow-sm" onClick={handleExport}>
             <Download className="h-4 w-4" />
-            Export CSV
+            {t('actions.export_csv')}
           </Button>
         </div>
       </Header>
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6">
         <Card>
           <CardHeader>
-            <CardTitle>Product Catalog</CardTitle>
+            <CardTitle>{t('products.catalog')}</CardTitle>
             <CardDescription>
-              Manage your vegetable products and their pricing.
+              {t('products.desc')}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Item Code</TableHead>
-                  <TableHead>Item Name</TableHead>
+                  <TableHead>{t('products.item_code')}</TableHead>
+                  <TableHead>{t('products.item_name')}</TableHead>
 
                   <TableHead>
-                    <span className="sr-only">Actions</span>
+                    <span className="sr-only">{t('forms.actions')}</span>
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -106,13 +108,13 @@ export default function ProductsPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onSelect={() => setTimeout(() => handleEdit(product), 0)}>
-                            <Edit className="h-4 w-4 mr-2" /> Edit
+                            <Edit className="h-4 w-4 mr-2" /> {t('actions.edit')}
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             className="text-destructive focus:text-destructive"
                             onSelect={() => handleDelete(product.id)}
                           >
-                            <Trash className="h-4 w-4 mr-2" /> Delete
+                            <Trash className="h-4 w-4 mr-2" /> {t('actions.delete')}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>

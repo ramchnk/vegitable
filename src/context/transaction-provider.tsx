@@ -29,6 +29,13 @@ interface TransactionContextType {
     updateCustomer: (customer: Customer) => void;
     dailySummaries: DailyAccountSummary[];
     saveDailySummary: (summary: DailyAccountSummary) => void;
+    addPayment: (
+        partyId: string,
+        partyName: string,
+        partyType: "Supplier" | "Customer",
+        amount: number,
+        paymentMethod?: string
+    ) => Promise<void>;
     products: Product[];
     addProduct: (product: Omit<Product, 'id'>) => Promise<void>;
     updateProduct: (product: Product) => void;
@@ -244,6 +251,21 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
                     paymentMethod: paymentMethod,
                 });
             }
+
+            // Create a Payment transaction record if amount was paid
+            if (amountPaid > 0) {
+                const paymentTransRef = doc(collection(firestore, 'transactions'));
+                batch.set(paymentTransRef, {
+                    id: paymentTransRef.id,
+                    date: newTransactions[0].date,
+                    party: partyName,
+                    type: "Payment",
+                    item: "Partial/Full Payment during Sale",
+                    amount: amountPaid,
+                    payment: paymentMethod,
+                    debit: amountPaid,
+                });
+            }
         } else { // Purchase
             let supplier = suppliers.find(s => s.name.toLowerCase() === partyName.toLowerCase());
             let supplierId: string;
@@ -279,6 +301,21 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
                     paidAmount: amountPaid,
                     dueAmount: dueAmount,
                     paymentMethod: paymentMethod,
+                });
+            }
+
+            // Create a Payment transaction record if amount was paid
+            if (amountPaid > 0) {
+                const paymentTransRef = doc(collection(firestore, 'transactions'));
+                batch.set(paymentTransRef, {
+                    id: paymentTransRef.id,
+                    date: newTransactions[0].date,
+                    party: partyName,
+                    type: "Payment",
+                    item: "Partial/Full Payment during Purchase",
+                    amount: amountPaid,
+                    payment: paymentMethod,
+                    credit: amountPaid,
                 });
             }
         }
@@ -377,6 +414,59 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
         });
     };
 
+    const addPayment = async (
+        partyId: string,
+        partyName: string,
+        partyType: "Supplier" | "Customer",
+        amount: number,
+        paymentMethod: string = "Cash"
+    ) => {
+        if (!firestore || !user) return;
+
+        const batch = writeBatch(firestore);
+        const timestamp = new Date().toISOString();
+
+        // 1. Create Transaction Record
+        const transRef = doc(collection(firestore, 'transactions'));
+        const transaction: Transaction = {
+            id: transRef.id,
+            date: timestamp,
+            party: partyName,
+            type: "Payment",
+            item: "Payment Received/Given",
+            amount: amount,
+            payment: paymentMethod,
+            credit: partyType === "Supplier" ? amount : 0, // Supplier payment is credit (reducing our debt)
+            debit: partyType === "Customer" ? amount : 0,  // Customer payment is debit (reducing their debt)
+        };
+        batch.set(transRef, transaction);
+
+        // 2. Update Payment Summary
+        const collectionName = partyType === "Supplier" ? "supplierPayments" : "customerPayments";
+        const paymentRef = doc(firestore, collectionName, partyId);
+
+        // Find existing payment detail to update
+        const existingPayment = (partyType === "Supplier" ? supplierPayments : customerPayments).find(p => p.partyId === partyId);
+
+        if (existingPayment) {
+            batch.update(paymentRef, {
+                paidAmount: existingPayment.paidAmount + amount,
+                dueAmount: existingPayment.dueAmount - amount,
+                paymentMethod: paymentMethod
+            });
+        }
+
+        try {
+            await batch.commit();
+            toast({ title: 'Success', description: 'Payment recorded successfully.' });
+        } catch (e) {
+            console.error("Error adding payment:", e);
+            toast({ title: 'Error', description: 'Failed to record payment.', variant: 'destructive' });
+            const permissionError = new FirestorePermissionError({ path: 'batch-write', operation: 'write' });
+            errorEmitter.emit('permission-error', permissionError);
+        }
+    };
+
     const addProduct = async (newProductData: Omit<Product, 'id'>) => {
         if (!firestore) {
             const error = new Error("Firestore not initialized");
@@ -428,7 +518,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
         }
     }
 
-    const value: TransactionContextType = { transactions, addTransaction, supplierPayments, customerPayments, updateSupplierPayment, updateCustomerPayment, suppliers, addSupplier, updateSupplier, customers, addCustomer, updateCustomer, deleteCustomer, dailySummaries, saveDailySummary, products, addProduct, updateProduct, deleteProduct, loading };
+    const value: TransactionContextType = { transactions, addTransaction, supplierPayments, customerPayments, updateSupplierPayment, updateCustomerPayment, suppliers, addSupplier, updateSupplier, customers, addCustomer, updateCustomer, deleteCustomer, dailySummaries, saveDailySummary, addPayment, products, addProduct, updateProduct, deleteProduct, loading };
 
     return (
         <TransactionContext.Provider value={value}>

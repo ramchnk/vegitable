@@ -27,9 +27,11 @@ import { formatCurrency } from "@/lib/utils";
 import type { PaymentDetail, Supplier } from "@/lib/types";
 import { AddSupplierDialog } from "@/components/purchase/add-supplier-dialog";
 import { EditSupplierDialog } from "@/components/purchase/edit-supplier-dialog";
+import { useLanguage } from "@/context/language-context";
 
 export default function PurchaseSuppliersPage() {
   const { supplierPayments, updateSupplier, updateSupplierPayment, suppliers } = useTransactions();
+  const { t } = useLanguage();
   const [searchTerm, setSearchTerm] = useState("");
   const [editingSupplier, setEditingSupplier] = useState<PaymentDetail | null>(null);
 
@@ -45,10 +47,10 @@ export default function PurchaseSuppliersPage() {
 
   return (
     <>
-      <Header title="Payment Dues">
+      <Header title={t('nav.purchase')}>
         <div className="flex items-center gap-2">
           <Input
-            placeholder="Supplier Name"
+            placeholder={t('forms.supplier')}
             className="w-48"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -56,7 +58,7 @@ export default function PurchaseSuppliersPage() {
           <AddSupplierDialog>
             <Button size="sm" className="gap-1">
               <Plus className="h-4 w-4" />
-              New
+              {t('actions.new')}
             </Button>
           </AddSupplierDialog>
         </div>
@@ -64,29 +66,29 @@ export default function PurchaseSuppliersPage() {
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6">
         <Card>
           <CardHeader>
-            <CardTitle>Payment Dues</CardTitle>
+            <CardTitle className="text-2xl font-bold tracking-tight">{t('nav.payments')} {t('forms.balance')}</CardTitle>
             <CardDescription>
-              View and settle monthly payments for farmers.
+              {t('forms.log_intake_desc')}
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[100px]">Code</TableHead>
+                  <TableHead className="w-[100px]">{t('products.item_code')}</TableHead>
                   <TableHead>
                     <div className="flex items-center gap-2">
-                      <User className="h-4 w-4" /> Supplier
+                      <User className="h-4 w-4" /> {t('forms.supplier')}
                     </div>
                   </TableHead>
                   <TableHead className="text-right">
                     <div className="flex items-center gap-2 justify-end">
-                      <Wallet className="h-4 w-4" /> Outstanding Payment
+                      <Wallet className="h-4 w-4" /> {t('forms.outstanding')}
                     </div>
                   </TableHead>
                   <TableHead className="text-center">
                     <div className="flex items-center gap-2 justify-center">
-                      <BookOpen className="h-4 w-4" /> Ledger
+                      <BookOpen className="h-4 w-4" /> {t('nav.accounts')}
                     </div>
                   </TableHead>
                 </TableRow>
@@ -113,7 +115,7 @@ export default function PurchaseSuppliersPage() {
                     <TableCell className="text-center">
                       <Link href={`/purchase/suppliers/${supplier.partyId}`}>
                         <Button variant="outline" size="sm">
-                          View
+                          {t('actions.view')}
                         </Button>
                       </Link>
                     </TableCell>

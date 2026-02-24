@@ -27,6 +27,7 @@ import { useState } from "react";
 import { useTransactions } from "@/context/transaction-provider";
 import { User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/context/language-context";
 
 const customerFormSchema = z.object({
   code: z.string().min(1, "Customer Code Required"),
@@ -40,6 +41,7 @@ type CustomerFormValues = z.infer<typeof customerFormSchema>;
 export function AddCustomerDialog({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const { addCustomer } = useTransactions();
+  const { t } = useLanguage();
 
   const form = useForm<CustomerFormValues>({
     resolver: zodResolver(customerFormSchema),
@@ -83,7 +85,7 @@ export function AddCustomerDialog({ children }: { children: React.ReactNode }) {
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>New Customer Inclusion</DialogTitle>
+          <DialogTitle>{t('customers.new_customer_title')}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -92,9 +94,9 @@ export function AddCustomerDialog({ children }: { children: React.ReactNode }) {
               name="code"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Customer Code</FormLabel>
+                  <FormLabel>{t('customers.code_label')}</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter Customer Code (Optional)" {...field} />
+                    <Input placeholder={t('customers.code_label')} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -107,10 +109,10 @@ export function AddCustomerDialog({ children }: { children: React.ReactNode }) {
                 <FormItem>
                   <FormLabel className="flex items-center gap-2">
                     <User className="h-4 w-4" />
-                    Customer Name
+                    {t('customers.name_label')}
                   </FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter Customer name" {...field} />
+                    <Input placeholder={t('customers.name_label')} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -121,9 +123,9 @@ export function AddCustomerDialog({ children }: { children: React.ReactNode }) {
               name="address"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Address 1</FormLabel>
+                  <FormLabel>{t('customers.address_label')}</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter Address 1" {...field} />
+                    <Input placeholder={t('customers.address_label')} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -134,9 +136,9 @@ export function AddCustomerDialog({ children }: { children: React.ReactNode }) {
               name="contact"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Phone Number</FormLabel>
+                  <FormLabel>{t('customers.phone_label')}</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter Phone Number" {...field} />
+                    <Input placeholder={t('customers.phone_label')} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -145,11 +147,11 @@ export function AddCustomerDialog({ children }: { children: React.ReactNode }) {
             <DialogFooter>
               <DialogClose asChild>
                 <Button type="button" variant="secondary">
-                  Close
+                  {t('actions.cancel')}
                 </Button>
               </DialogClose>
               <Button type="submit" disabled={isLoading}>
-                {isLoading ? "Saving..." : "Save changes"}
+                {isLoading ? t('customers.saving') : t('customers.save_changes')}
               </Button>
             </DialogFooter>
           </form>
