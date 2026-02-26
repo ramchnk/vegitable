@@ -22,10 +22,11 @@ import {
     LineChart,
     LogOut,
     ShoppingCart,
+    ShoppingBasket,
     CreditCard,
     Users,
     User,
-    BookUser,
+    Package,
 } from "lucide-react";
 
 
@@ -33,13 +34,12 @@ import { useLanguage } from "@/context/language-context";
 
 const menuItems = [
     { href: '/dashboard', labelKey: 'nav.dashboard', icon: LineChart, key: 'dashboard' },
-    { href: '/vegetable-intake', labelKey: 'nav.purchase', icon: Leaf, key: 'vegetable-intake' },
+    { href: '/vegetable-intake', labelKey: 'nav.purchase', icon: ShoppingBasket, key: 'vegetable-intake' },
     { href: '/sales', labelKey: 'nav.sales', icon: ShoppingCart, key: 'sales' },
     { href: '/credits', labelKey: 'nav.payments', icon: CreditCard, key: 'credits' },
-    { href: '/products', labelKey: 'nav.products', icon: Leaf, key: 'products' },
+    { href: '/products', labelKey: 'nav.products', icon: Package, key: 'products' },
     { href: '/purchase/suppliers', labelKey: 'nav.suppliers', icon: Users, key: 'suppliers' },
     { href: '/sales/customers', labelKey: 'nav.customers', icon: User, key: 'customers' },
-    { href: '/settings', labelKey: 'nav.accounts', icon: BookUser, key: 'settings' },
     { href: '/login', labelKey: 'nav.logout', icon: LogOut, key: 'logout' },
 ]
 

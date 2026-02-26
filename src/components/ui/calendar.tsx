@@ -27,11 +27,11 @@ function Calendar({
         nav: "space-x-1 flex items-center",
         button_previous: cn(
           buttonVariants({ variant: "outline" }),
-          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
+          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 absolute left-1"
         ),
         button_next: cn(
           buttonVariants({ variant: "outline" }),
-          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
+          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 absolute right-1"
         ),
         month_grid: "w-full border-collapse space-y-1",
         weekdays: "flex",
@@ -58,9 +58,9 @@ function Calendar({
       components={{
         Chevron: ({ ...props }) => {
           if (props.orientation === "left") {
-            return <ChevronLeft className="h-4 w-4" />
+            return <ChevronLeft className={cn("h-4 w-4", props.className)} />
           }
-          return <ChevronRight className="h-4 w-4" />
+          return <ChevronRight className={cn("h-4 w-4", props.className)} />
         },
       }}
       {...props}

@@ -65,6 +65,8 @@ export type Transaction = {
     amount: number;
     payment: string;
     billNumber?: number;
+    quantity?: number;
+    price?: number;
     debit?: number;
     credit?: number;
 }

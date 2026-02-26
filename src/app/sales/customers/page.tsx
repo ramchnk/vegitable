@@ -30,7 +30,7 @@ import { EditCustomerDialog } from "@/components/sales/edit-customer-dialog";
 import { useLanguage } from "@/context/language-context";
 
 export default function SalesCustomersPage() {
-  const { customerPayments, updateCustomer, updateCustomerPayment, customers } = useTransactions();
+  const { customerPayments, updateCustomer, updateCustomerPayment, customers, deleteCustomer } = useTransactions();
   const { t } = useLanguage();
   const [searchTerm, setSearchTerm] = useState("");
   const [editingCustomer, setEditingCustomer] = useState<PaymentDetail | null>(null);
@@ -48,6 +48,15 @@ export default function SalesCustomersPage() {
     updateCustomer(customer);
     updateCustomerPayment(payment);
     setEditingCustomer(null);
+  };
+
+  const handleDelete = async (customerId: string) => {
+    try {
+      await deleteCustomer(customerId);
+      setEditingCustomer(null);
+    } catch (err) {
+      console.error("Failed to delete customer:", err);
+    }
   };
 
   return (
@@ -109,22 +118,22 @@ export default function SalesCustomersPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>
+                    <TableHead className="font-bold text-primary">
                       <div className="flex items-center gap-2">
                         <Users className="h-4 w-4" /> {t('products.item_code')}
                       </div>
                     </TableHead>
-                    <TableHead>
+                    <TableHead className="font-bold text-primary">
                       <div className="flex items-center gap-2">
                         {t('forms.customer')}
                       </div>
                     </TableHead>
-                    <TableHead className="text-right">
+                    <TableHead className="text-right font-bold text-primary">
                       <div className="flex items-center gap-2 justify-end">
                         <Wallet className="h-4 w-4" /> {t('forms.outstanding')}
                       </div>
                     </TableHead>
-                    <TableHead className="text-center">
+                    <TableHead className="text-center font-bold text-primary">
                       <div className="flex items-center gap-2 justify-center">
                         <Folder className="h-4 w-4" /> {t('nav.accounts')}
                       </div>
@@ -172,6 +181,7 @@ export default function SalesCustomersPage() {
           open={!!editingCustomer}
           onOpenChange={(open) => !open && setEditingCustomer(null)}
           onSave={handleSave}
+          onDelete={handleDelete}
         />
       </main>
     </>

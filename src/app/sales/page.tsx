@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -6,7 +5,7 @@ import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Plus, Trash, Printer, MessageCircle, Check, ChevronsUpDown } from "lucide-react";
+import { Calendar as CalendarIcon, Plus, Trash, Printer, MessageCircle, Check, ChevronsUpDown, History, Users, CreditCard } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import Link from "next/link";
 import { createRoot } from 'react-dom/client';
@@ -41,7 +40,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
+import { DatePickerCustom } from "@/components/ui/custom-date-picker";
 import {
   Table,
   TableBody,
@@ -66,10 +65,8 @@ import {
 } from "@/components/ui/command";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useTransactions } from "@/context/transaction-provider";
-
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/context/language-context";
-import { Users, CreditCard } from "lucide-react";
 
 const saleItemSchema = z.object({
   itemId: z.string().min(1, "Item is required."),
@@ -90,13 +87,15 @@ const salesFormSchema = z.object({
 type SalesFormValues = z.infer<typeof salesFormSchema>;
 
 export default function SalesPage() {
-  const { customers, customerPayments, addTransaction, products, addCustomer, deleteCustomer, loading, transactions } = useTransactions(); // Added transactions and deleteCustomer
+  const { customers, customerPayments, addTransaction, products, addCustomer, deleteCustomer, loading, transactions } = useTransactions();
   const { toast } = useToast();
   const { t } = useLanguage();
   const [outstanding, setOutstanding] = useState(0);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const creatingRef = useRef(false);
 
   const dateTriggerRef = useRef<HTMLButtonElement>(null);
+  const customerTriggerRef = useRef<HTMLButtonElement>(null);
   const itemTypeTriggerRef = useRef<HTMLButtonElement>(null);
   const weightRef = useRef<HTMLInputElement>(null);
   const priceRef = useRef<HTMLInputElement>(null);
@@ -107,7 +106,7 @@ export default function SalesPage() {
       customerId: "",
       salesDate: new Date(),
       items: [],
-      amountPaid: undefined,
+      amountPaid: "" as any,
       paymentType: "Cash",
     },
   });
@@ -117,9 +116,22 @@ export default function SalesPage() {
     name: "items",
   });
 
+  // Navigation Guard
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (fields.length > 0) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [fields.length]);
+
   const watchedCustomerId = form.watch("customerId");
   const watchedItems = form.watch("items");
   const watchedAmountPaid = form.watch("amountPaid");
+  const watchedSalesDate = form.watch("salesDate");
 
   useEffect(() => {
     if (loading) return;
@@ -127,15 +139,13 @@ export default function SalesPage() {
     // 1. Cleanup Duplicates
     const walkInCustomers = customers.filter(c => c.name.toLowerCase() === "walk-in customer");
     if (walkInCustomers.length > 1) {
-      // Keep the first one (or the one with code '000' if others are different, but they likely all have '000')
-      // Let's just keep the first one found and delete the others.
       const [keep, ...duplicates] = walkInCustomers;
       console.log(`Found ${duplicates.length} duplicate Walk-in Customers. Deleting...`);
       duplicates.forEach(dup => {
-        deleteCustomer(dup.id).catch(err => console.error(`Failed to delete duplicate customer ${dup.id}:`, err));
+        deleteCustomer(dup.id, true).catch(err => console.error(`Failed to delete duplicate customer ${dup.id}:`, err));
       });
     }
-  }, [customers, loading]);
+  }, [customers, loading, deleteCustomer]);
 
   useEffect(() => {
     if (loading) return;
@@ -144,42 +154,54 @@ export default function SalesPage() {
     const walkInCustomers = customers.filter(c => c.name.toLowerCase() === "walk-in customer");
 
     if (walkInCustomers.length > 0) {
-      // If exists, select the first one if nothing selected
       const walkIn = walkInCustomers[0];
       if (!form.getValues("customerId")) {
         form.setValue("customerId", walkIn.id);
       }
     } else {
-      // Create only if absolutely no walk-in customer exists
       if (!creatingRef.current) {
         creatingRef.current = true;
-        addCustomer({ name: "Walk-in Customer", contact: "", address: "", code: "000" })
+        addCustomer({ name: "Walk-in Customer", contact: "", address: "", code: "000" }, true)
           .then(() => {
             console.log("Created default Walk-in Customer");
           })
           .catch(err => {
             console.error("Failed to create default customer:", err);
-            creatingRef.current = false; // Reset on failure so we can try again
+            creatingRef.current = false;
           });
-        // Note: We don't reset creatingRef to false immediately on success to prevent double-fire in some strict modes
-        // But in production it's fine. 
       }
     }
   }, [customers, loading, form, addCustomer]);
 
   useEffect(() => {
     if (watchedCustomerId) {
-      const payment = customerPayments.find(p => p.partyId === watchedCustomerId);
-      setOutstanding(payment?.dueAmount || 0);
+      const customer = customers.find(c => c.id === watchedCustomerId);
+      const isWalkIn = customer?.name.toLowerCase() === "walk-in customer";
+
+      if (isWalkIn) {
+        setOutstanding(0);
+      } else {
+        const payment = customerPayments.find(p => p.partyId === watchedCustomerId);
+        setOutstanding(payment?.dueAmount || 0);
+      }
     } else {
       setOutstanding(0);
     }
-  }, [watchedCustomerId, customerPayments]);
+  }, [watchedCustomerId, customerPayments, customers]);
 
   const totalCost = useMemo(() =>
     watchedItems.reduce((acc, item) => acc + (item.quantity || 0) * (item.price || 0), 0),
     [watchedItems]
   );
+
+  // Auto-update Paid Amount for Walk-in Customer
+  useEffect(() => {
+    const customer = customers.find(c => c.id === watchedCustomerId);
+    const isWalkIn = customer?.name.toLowerCase() === "walk-in customer";
+    if (isWalkIn) {
+      form.setValue("amountPaid", totalCost === 0 ? "" as any : totalCost);
+    }
+  }, [watchedCustomerId, totalCost, customers, form]);
 
   const netAmount = totalCost;
   const balanceAmount = netAmount - (watchedAmountPaid || 0);
@@ -192,19 +214,6 @@ export default function SalesPage() {
     }
 
     const paymentMethod = data.paymentType;
-    // If Cash bill is selected, amountPaid should be totalCost by default if not entered?
-    // Actually, logic below handles amountPaidOverride.
-    // If "Cash", we assume full payment unless user typed something else?
-    // Let's stick to the requested UI: "Cash Bill" vs "Credit Bill".
-    // Usually "Cash Bill" means paid in full immediately.
-
-    // We need to ensure amountPaid matches totalCost if it's a Cash Bill and user didn't enter anything?
-    // But the form has an amountPaid field.
-    // Let's assume if "Cash Bill" is selected, we treat it as paid.
-
-    // HOWEVER, previous logic: const paymentMethod = data.amountPaid < totalCost ? 'Credit' : 'Cash';
-    // Now we rely on the radio button.
-
     const finalAmountPaid = data.paymentType === 'Cash' ? totalCost : (data.amountPaid || 0);
 
     const newTransactions = data.items.map(item => {
@@ -216,6 +225,8 @@ export default function SalesPage() {
         item: product?.name || 'Unknown Item',
         amount: item.price * item.quantity,
         payment: paymentMethod,
+        quantity: item.quantity,
+        price: item.price,
       };
     });
 
@@ -227,13 +238,24 @@ export default function SalesPage() {
 
     toast({ title: 'Success', description: 'Sales entry submitted successfully.' });
     form.reset({
-      customerId: data.customerId, // Keep customer selected
+      customerId: data.customerId,
       salesDate: new Date(),
       items: [],
-      amountPaid: undefined,
+      amountPaid: "" as any,
       paymentType: "Cash",
     });
   }
+
+  const clearBill = () => {
+    form.reset({
+      customerId: "",
+      salesDate: new Date(),
+      items: [],
+      amountPaid: "" as any,
+      paymentType: "Cash",
+    });
+    toast({ title: "Bill Cleared", description: "All fields have been reset." });
+  };
 
   const [newItemId, setNewItemId] = useState("");
   const [newItemQuantity, setNewItemQuantity] = useState("");
@@ -315,7 +337,6 @@ export default function SalesPage() {
     window.open(`https://wa.me/${whatsappNumber}?text=${encodedMessage}`, '_blank');
   }
 
-  /* Implemented Thermal Print functionality */
   const handlePrintThermal = () => {
     const customerId = form.getValues("customerId");
     if (!customerId) {
@@ -345,35 +366,20 @@ export default function SalesPage() {
     const paymentType = form.getValues("paymentType");
     const manualAmountPaid = form.getValues("amountPaid") || 0;
 
-    // Calculate totals
     const totalAmount = items.reduce((sum, item) => sum + item.total, 0);
     const totalItems = items.length;
     const totalQty = items.reduce((sum, item) => sum + item.quantity, 0);
-
-    // Calculate balances
-    // Old Balance is the current outstanding from database
     const oldBalance = outstanding;
-
-    // Amount Paid for this calculation
-    // If Cash Bill, usually means fully paid? Or just the type is Cash?
-    // Based on onSubmit logic: const finalAmountPaid = data.paymentType === 'Cash' ? totalCost : (data.amountPaid || 0);
     const amountPaid = paymentType === 'Cash' ? totalAmount : manualAmountPaid;
-
     const currentBalance = oldBalance + totalAmount - amountPaid;
 
-    // Open print window
     const printWindow = window.open('', '_blank', 'width=400,height=600');
     if (printWindow) {
-
-      // Copy styles
       const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
         .map(node => node.cloneNode(true));
-
       styles.forEach(style => printWindow.document.head.appendChild(style));
-
       const container = printWindow.document.createElement('div');
       printWindow.document.body.appendChild(container);
-
       const root = createRoot(container);
       root.render(
         <ThermalPrint
@@ -391,8 +397,6 @@ export default function SalesPage() {
           totalQty={totalQty}
         />
       );
-
-      // Wait for render and styles then print
       setTimeout(() => {
         printWindow.print();
         printWindow.close();
@@ -400,7 +404,6 @@ export default function SalesPage() {
     }
   };
 
-  /* Implemented A5 Print functionality */
   const handlePrintA5 = () => {
     const customerId = form.getValues("customerId");
     if (!customerId) {
@@ -439,12 +442,9 @@ export default function SalesPage() {
     if (printWindow) {
       const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
         .map(node => node.cloneNode(true));
-
       styles.forEach(style => printWindow.document.head.appendChild(style));
-
       const container = printWindow.document.createElement('div');
       printWindow.document.body.appendChild(container);
-
       const root = createRoot(container);
       root.render(
         <A5Print
@@ -461,7 +461,6 @@ export default function SalesPage() {
           paidAmount={amountPaid}
         />
       );
-
       setTimeout(() => {
         printWindow.print();
         printWindow.close();
@@ -474,179 +473,202 @@ export default function SalesPage() {
       <Header title={t('forms.new_sales_entry')}>
         <div className="flex items-center gap-2">
           <Link href="/sales/customers">
-            <Button size="sm" className="gap-1 bg-blue-600 hover:bg-blue-700 text-white border-none shadow-sm">
+            <Button size="sm" variant="outline" className="gap-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white border-none shadow-sm transition-all duration-200">
               <Users className="h-4 w-4" />
               {t('nav.customers')}
             </Button>
           </Link>
           <Link href="/sales/payments">
-            <Button size="sm" className="gap-1 bg-yellow-400 hover:bg-yellow-500 text-yellow-950 border-none shadow-sm">
+            <Button size="sm" variant="outline" className="gap-1 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white border-none shadow-sm transition-all duration-200">
               <CreditCard className="h-4 w-4" />
               {t('nav.payments')}
             </Button>
           </Link>
+          <Link href="/sales/history">
+            <Button size="sm" variant="outline" className="gap-1 px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white border-none shadow-sm transition-all duration-200">
+              <History className="h-4 w-4" />
+              {t('nav.history')}
+            </Button>
+          </Link>
         </div>
       </Header>
-      <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6">
+      <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6 bg-muted/20">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)}>
-            <Card>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-              <CardContent className="space-y-6 pt-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="customerId"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col">
-                        <FormLabel className="font-bold text-primary">{t('forms.customer')}</FormLabel>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                variant="outline"
-                                role="combobox"
-                                className={cn(
-                                  "w-full justify-between",
-                                  !field.value && "text-muted-foreground"
-                                )}
-                              >
-                                {field.value
-                                  ? customers.find((c) => c.id === field.value)?.name
-                                    ? `${customers.find((c) => c.id === field.value)?.code ? customers.find((c) => c.id === field.value)?.code + ' - ' : ''}${customers.find((c) => c.id === field.value)?.name}`
-                                    : t('forms.select_customer')
-                                  : t('forms.select_customer')}
-                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                            <Command>
-                              <CommandInput placeholder={t('forms.search_customer')} />
-                              <CommandList>
-                                <CommandEmpty>{t('forms.no_customer_found')}</CommandEmpty>
-                                <CommandGroup>
-                                  {customers.map((customer) => (
-                                    <CommandItem
-                                      value={`${customer.code || ''} ${customer.name}`}
-                                      key={customer.id}
-                                      onSelect={() => {
-                                        form.setValue("customerId", customer.id);
-                                        itemTypeTriggerRef.current?.focus();
-                                      }}
-                                    >
-                                      <Check
-                                        className={cn(
-                                          "mr-2 h-4 w-4",
-                                          customer.id === field.value
-                                            ? "opacity-100"
-                                            : "opacity-0"
-                                        )}
-                                      />
-                                      {customer.code && <span className="mr-2 font-mono text-muted-foreground">{customer.code}</span>}
-                                      {customer.name}
-                                    </CommandItem>
-                                  ))}
-                                </CommandGroup>
-                              </CommandList>
-                            </Command>
-                          </PopoverContent>
-                        </Popover>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="salesDate"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col">
-                        <FormLabel className="font-bold text-primary">{t('forms.sales_date')}</FormLabel>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                ref={dateTriggerRef}
-                                variant={"outline"}
-                                className={cn(
-                                  "pl-3 text-left font-normal",
-                                  !field.value && "text-muted-foreground"
-                                )}
-                              >
-                                {field.value ? format(field.value, "PPP") : <span>{t('date.pick_date')}</span>}
-                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={field.value}
-                              onSelect={(date) => {
-                                field.onChange(date);
-                                // Small timeout to ensure the popover closure doesn't steal focus back immediately if that's an issue, 
-                                // but usually direct focus works.
-                                if (date) setTimeout(() => itemTypeTriggerRef.current?.focus(), 0);
-                              }}
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="rounded-lg border p-4 bg-muted/50 col-span-1 md:col-span-2">
-                    <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4">
+              {/* Left Column: Bill Info & Item Entry */}
+              <div className="lg:col-span-4 space-y-6">
+                {/* Bill Information Card */}
+                <Card className="shadow-sm border-primary/10">
+                  <CardHeader className="pb-3 border-b bg-muted/30">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <CreditCard className="h-5 w-5 text-primary" />
+                      {t('forms.bill_information')}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-5 space-y-4">
+                    <div className="flex justify-between items-center bg-primary/5 p-3 rounded-lg border border-primary/10">
                       <div>
-                        <Label className="text-muted-foreground font-bold text-primary">{t('forms.bill_number')}</Label>
-                        <div className="text-2xl font-bold">#{
-                          (transactions.reduce((max, t) => (t.billNumber || 0) > max ? (t.billNumber || 0) : max, 0) + 1)
+                        <Label className="text-xs text-muted-foreground uppercase font-bold">{t('forms.bill_number')}</Label>
+                        <div className="text-xl font-bold text-primary">#{
+                          (() => {
+                            const targetDate = watchedSalesDate ? format(watchedSalesDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
+                            const maxBillNumber = transactions
+                              .filter(t => t.date === targetDate)
+                              .reduce((max, t) => (t.billNumber || 0) > max ? (t.billNumber || 0) : max, 0);
+                            return maxBillNumber + 1;
+                          })()
                         }</div>
                       </div>
                       <FormField
                         control={form.control}
                         name="paymentType"
                         render={({ field }) => (
-                          <FormItem className="space-y-3 flex flex-col items-center md:col-start-2">
+                          <FormItem className="space-y-0">
                             <FormControl>
                               <RadioGroup
                                 onValueChange={field.onChange}
                                 defaultValue={field.value}
-                                className="flex flex-row space-x-4"
+                                className="flex flex-col gap-1"
                               >
                                 <FormItem className="flex items-center space-x-2 space-y-0">
                                   <FormControl>
-                                    <RadioGroupItem value="Cash" />
+                                    <RadioGroupItem value="Cash" className="h-4 w-4" />
                                   </FormControl>
-                                  <FormLabel className="font-bold text-primary cursor-pointer">
-                                    {t('forms.cash_bill')}
-                                  </FormLabel>
+                                  <FormLabel className="font-semibold text-sm cursor-pointer">{t('forms.cash_bill')}</FormLabel>
                                 </FormItem>
                                 <FormItem className="flex items-center space-x-2 space-y-0">
                                   <FormControl>
-                                    <RadioGroupItem value="Credit" />
+                                    <RadioGroupItem value="Credit" className="h-4 w-4" />
                                   </FormControl>
-                                  <FormLabel className="font-bold text-primary cursor-pointer">
-                                    {t('forms.credit_bill')}
-                                  </FormLabel>
+                                  <FormLabel className="font-semibold text-sm cursor-pointer">{t('forms.credit_bill')}</FormLabel>
                                 </FormItem>
                               </RadioGroup>
                             </FormControl>
-                            <FormMessage />
                           </FormItem>
                         )}
                       />
                     </div>
-                  </div>
-                </div>
 
-                <div className="space-y-2 rounded-lg border p-4">
-                  <div className="grid grid-cols-12 gap-2 items-end">
-                    <div className="col-span-5">
-                      <Label className="font-bold text-primary">{t('forms.item_type')}</Label>
+                    <FormField
+                      control={form.control}
+                      name="customerId"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                          <FormLabel className="font-semibold text-primary">{t('forms.customer')}</FormLabel>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <FormControl>
+                                <Button
+                                  ref={customerTriggerRef}
+                                  variant="outline"
+                                  role="combobox"
+                                  className="w-full justify-between h-10 !text-[#064e3b] !font-bold"
+                                >
+                                  {field.value
+                                    ? customers.find((c) => c.id === field.value)?.name
+                                      ? `${customers.find((c) => c.id === field.value)?.code || ''} - ${customers.find((c) => c.id === field.value)?.name}`
+                                      : t('forms.select_customer')
+                                    : t('forms.select_customer')}
+                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                              </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                              <Command>
+                                <CommandInput placeholder={t('forms.search_customer')} />
+                                <CommandList>
+                                  <CommandEmpty>{t('forms.no_customer_found')}</CommandEmpty>
+                                  <CommandGroup>
+                                    {customers.map((customer) => (
+                                      <CommandItem
+                                        value={`${customer.code || ''} ${customer.name}`}
+                                        key={customer.id}
+                                        onSelect={() => {
+                                          form.setValue("customerId", customer.id);
+                                          itemTypeTriggerRef.current?.focus();
+                                        }}
+                                      >
+                                        <Check
+                                          className={cn(
+                                            "mr-2 h-4 w-4",
+                                            customer.id === field.value
+                                              ? "opacity-100"
+                                              : "opacity-0"
+                                          )}
+                                        />
+                                        <span className="flex items-center gap-2 text-base py-1 !text-[#064e3b] !font-bold">
+                                          {customer.code && (
+                                            <span className="px-1.5 py-0.5 rounded bg-green-100 font-mono text-xs font-bold !text-[#064e3b]">
+                                              {customer.code}
+                                            </span>
+                                          )}
+                                          <span className="!font-bold !text-[#064e3b]">{customer.name}</span>
+                                        </span>
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="salesDate"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                          <FormLabel className="font-semibold text-primary">{t('forms.sales_date')}</FormLabel>
+                          <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                            <PopoverTrigger asChild>
+                              <FormControl>
+                                <Button
+                                  ref={dateTriggerRef}
+                                  variant={"outline"}
+                                  className={cn(
+                                    "w-full pl-3 text-left font-normal h-10",
+                                    !field.value && "text-muted-foreground"
+                                  )}
+                                >
+                                  {field.value ? format(field.value, "PPP") : <span>{t('date.pick_date')}</span>}
+                                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                </Button>
+                              </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0 border-none shadow-none bg-transparent" align="start">
+                              <DatePickerCustom
+                                selected={field.value}
+                                onSelect={(date) => {
+                                  field.onChange(date);
+                                  if (date) setTimeout(() => itemTypeTriggerRef.current?.focus(), 0);
+                                }}
+                                onClose={() => setIsCalendarOpen(false)}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </CardContent>
+                </Card>
+
+                {/* Add Items Card */}
+                <Card className="shadow-sm border-primary/10">
+                  <CardHeader className="pb-3 border-b bg-muted/30">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Plus className="h-5 w-5 text-primary" />
+                      {t('forms.add_items')}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-5 space-y-4">
+                    <div className="space-y-2">
+                      <Label className="font-semibold text-primary">{t('forms.item_type')}</Label>
                       <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
                         <PopoverTrigger asChild>
                           <Button
@@ -654,7 +676,7 @@ export default function SalesPage() {
                             variant="outline"
                             role="combobox"
                             aria-expanded={openCombobox}
-                            className="w-full justify-between"
+                            className="w-full justify-between h-10 !text-[#064e3b] !font-bold"
                           >
                             {newItemId
                               ? products.find((p) => p.id === newItemId)?.name
@@ -664,7 +686,7 @@ export default function SalesPage() {
                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                           <Command>
                             <CommandInput placeholder={t('forms.search_item')} />
                             <CommandList>
@@ -686,7 +708,14 @@ export default function SalesPage() {
                                         newItemId === product.id ? "opacity-100" : "opacity-0"
                                       )}
                                     />
-                                    {product.itemCode} - {product.name}
+                                    <span className="flex items-center gap-2 text-base py-1 !text-[#064e3b] !font-bold">
+                                      {product.itemCode && (
+                                        <span className="px-1.5 py-0.5 rounded bg-green-100 font-mono text-xs font-bold !text-[#064e3b]">
+                                          {product.itemCode}
+                                        </span>
+                                      )}
+                                      <span className="!font-bold !text-[#064e3b]">{product.name}</span>
+                                    </span>
                                   </CommandItem>
                                 ))}
                               </CommandGroup>
@@ -695,143 +724,191 @@ export default function SalesPage() {
                         </PopoverContent>
                       </Popover>
                     </div>
-                    <div className="col-span-3">
-                      <Label className="font-bold text-primary">{t('forms.weight_kg')}</Label>
-                      <Input
-                        ref={weightRef}
-                        placeholder="e.g. 100"
-                        value={newItemQuantity}
-                        onChange={e => setNewItemQuantity(e.target.value)}
-                        type="number"
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            priceRef.current?.focus();
-                          }
-                        }}
-                      />
-                    </div>
-                    <div className="col-span-3">
-                      <Label className="font-bold text-primary">{t('forms.price')}</Label>
-                      <Input
-                        ref={priceRef}
-                        placeholder="e.g. 80"
-                        value={newItemPrice}
-                        onChange={e => setNewItemPrice(e.target.value)}
-                        type="number"
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            handleAddItem();
-                            setTimeout(() => itemTypeTriggerRef.current?.focus(), 0);
-                          }
-                        }}
-                      />
-                    </div>
-                    <div className="col-span-1">
-                      <Button type="button" size="icon" onClick={handleAddItem} className="w-full">
-                        <Plus className="h-4 w-4" />
-                        <span className="sr-only">{t('forms.add_item')}</span>
-                      </Button>
-                    </div>
-                  </div>
-                </div>
 
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <Label className="font-semibold text-primary">{t('forms.weight_kg')}</Label>
+                        <Input
+                          ref={weightRef}
+                          placeholder="0.00"
+                          value={newItemQuantity}
+                          onChange={e => setNewItemQuantity(e.target.value)}
+                          type="number"
+                          className="h-10"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              priceRef.current?.focus();
+                            }
+                          }}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="font-semibold text-primary">{t('forms.price')}</Label>
+                        <Input
+                          ref={priceRef}
+                          placeholder="0.00"
+                          value={newItemPrice}
+                          onChange={e => setNewItemPrice(e.target.value)}
+                          type="number"
+                          className="h-10"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleAddItem();
+                              setTimeout(() => itemTypeTriggerRef.current?.focus(), 0);
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
 
-                <div>
-                  <FormLabel className="font-bold text-primary">{t('forms.items')}</FormLabel>
-                  <div className="rounded-md border">
+                    <Button type="button" onClick={handleAddItem} className="w-full h-10 mt-2 gap-2">
+                      <Plus className="h-4 w-4" />
+                      {t('forms.add_item')}
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Right Column: Items List & Total */}
+              <div className="lg:col-span-8 space-y-6">
+                <Card className="flex flex-col h-full shadow-sm border-primary/10 min-h-[500px]">
+                  <CardHeader className="pb-3 border-b bg-muted/30 flex flex-row items-center justify-between">
+                    <div>
+                      <CardTitle className="text-lg">{t('forms.items_list')}</CardTitle>
+                      <CardDescription>{t('forms.review_manage_items')}</CardDescription>
+                    </div>
+                    <div className="text-sm font-medium bg-primary/10 text-primary px-3 py-1 rounded-full">
+                      {fields.length} {t('forms.items')}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="flex-1 p-0 overflow-auto">
                     <Table>
-                      <TableHeader>
+                      <TableHeader className="bg-muted/30 sticky top-0 z-10">
                         <TableRow>
-                          <TableHead>{t('forms.item')}</TableHead>
-                          <TableHead className="text-right">{t('forms.weight_kg')}</TableHead>
-                          <TableHead className="text-right">{t('forms.price')}</TableHead>
-                          <TableHead className="text-right">{t('forms.total')}</TableHead>
-                          <TableHead><span className="sr-only">{t('forms.remove_item')}</span></TableHead>
+                          <TableHead className="w-[40%] font-bold text-primary">{t('forms.item')}</TableHead>
+                          <TableHead className="text-right font-bold text-primary">{t('forms.weight_kg')}</TableHead>
+                          <TableHead className="text-right font-bold text-primary">{t('forms.price')}</TableHead>
+                          <TableHead className="text-right font-bold text-primary">{t('forms.total')}</TableHead>
+                          <TableHead className="w-10"></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {fields.length === 0 && (
+                        {fields.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={5} className="text-center">{t('forms.no_items')}</TableCell>
+                            <TableCell colSpan={5} className="h-40 text-center text-muted-foreground italic">
+                              {t('forms.no_items')}
+                            </TableCell>
                           </TableRow>
+                        ) : (
+                          fields.map((field, index) => {
+                            const product = products.find(p => p.id === field.itemId);
+                            return (
+                              <TableRow key={field.id} className="hover:bg-muted/30 transition-colors">
+                                <TableCell className="font-medium">{product?.name}</TableCell>
+                                <TableCell className="text-right">{field.quantity.toFixed(2)}</TableCell>
+                                <TableCell className="text-right">{formatCurrency(field.price)}</TableCell>
+                                <TableCell className="text-right font-bold">{formatCurrency(field.quantity * field.price)}</TableCell>
+                                <TableCell>
+                                  <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="h-8 w-8 hover:text-destructive">
+                                    <Trash className="h-4 w-4" />
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            )
+                          })
                         )}
-                        {fields.map((field, index) => {
-                          const product = products.find(p => p.id === field.itemId);
-                          return (
-                            <TableRow key={field.id}>
-                              <TableCell>{product?.name}</TableCell>
-                              <TableCell className="text-right">{field.quantity}</TableCell>
-                              <TableCell className="text-right">{formatCurrency(field.price)}</TableCell>
-                              <TableCell className="text-right">{formatCurrency(field.quantity * field.price)}</TableCell>
-                              <TableCell className="text-right">
-                                <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}>
-                                  <Trash className="h-4 w-4 text-destructive" />
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          )
-                        })}
                       </TableBody>
                     </Table>
-                  </div>
-                  <FormMessage>{form.formState.errors.items?.message}</FormMessage>
-                </div>
+                  </CardContent>
 
-                <div className="flex justify-end">
-                  <div className="w-full max-w-sm space-y-2">
-                    <div className="grid grid-cols-2 gap-4 items-center">
-                      <span className="font-medium text-muted-foreground">{t('forms.total')}</span>
-                      <span className="text-right font-medium">{formatCurrency(totalCost)}</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 items-center">
-                      <span className="font-medium text-muted-foreground">{t('forms.net_amount')}</span>
-                      <span className="text-right font-medium">{formatCurrency(netAmount)}</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 items-center">
-                      <FormLabel htmlFor="amountPaid" className="font-bold text-primary">{t('forms.debit')}</FormLabel>
-                      <FormField
-                        control={form.control}
-                        name="amountPaid"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <Input id="amountPaid" type="number" className="text-right" {...field} value={field.value ?? ""} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 items-center font-bold">
-                      <span>{t('forms.total')}</span>
-                      <span className="text-right">{formatCurrency(balanceAmount)}</span>
-                    </div>
-                  </div>
-                </div>
+                  <CardFooter className="border-t bg-muted/30 flex flex-col gap-4 pt-6">
+                    <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-6 pb-2">
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-muted-foreground font-bold">{t('forms.total_bill')}:</span>
+                          <span className="font-semibold">{formatCurrency(totalCost)}</span>
+                        </div>
+                        {(() => {
+                          const customer = customers.find(c => c.id === watchedCustomerId);
+                          const isWalkIn = customer?.name.toLowerCase() === "walk-in customer";
+                          if (isWalkIn) return null;
+                          return (
+                            <div className="flex justify-between items-center text-sm">
+                              <span className="text-muted-foreground font-bold">{t('forms.outstanding')}:</span>
+                              <span className="font-semibold text-destructive">{formatCurrency(outstanding)}</span>
+                            </div>
+                          );
+                        })()}
+                        <div className="flex justify-between items-center bg-primary/10 p-2 rounded text-lg font-bold text-primary">
+                          <span>{t('forms.grand_total')}:</span>
+                          <span>{formatCurrency(balanceAmount)}</span>
+                        </div>
+                      </div>
 
-              </CardContent>
-              <CardFooter className="gap-2">
-                <Button type="submit" size="lg">{t('forms.submit_sales')}</Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button type="button" variant="outline" size="icon">
-                      <Printer className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={handlePrintThermal}>
-                      Thermal
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handlePrintA5}>
-                      A5 Print
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <Button type="button" variant="outline" size="icon" onClick={handleWhatsApp}><MessageCircle className="h-4 w-4" /></Button>
-              </CardFooter>
-            </Card>
+                      <div className="flex flex-col justify-end gap-3">
+                        <FormField
+                          control={form.control}
+                          name="amountPaid"
+                          render={({ field }) => (
+                            <FormItem className="space-y-1">
+                              <FormLabel className="text-sm font-bold text-primary">{t('forms.paid_amount')}</FormLabel>
+                              <FormControl>
+                                <div className="relative">
+                                  <CreditCard className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                                  <Input
+                                    id="amountPaid"
+                                    type="number"
+                                    className="pl-9 text-right font-bold text-lg h-10 border-primary/20"
+                                    placeholder="0.00"
+                                    {...field}
+                                    value={field.value === 0 ? "" : field.value}
+                                    onChange={(e) => field.onChange(e.target.value === "" ? "" : parseFloat(e.target.value))}
+                                  />
+                                </div>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="w-full flex items-center gap-2 pt-2 border-t">
+                      <Button type="button" variant="outline" onClick={clearBill} className="gap-2">
+                        <Trash className="h-4 w-4" />
+                        {t('actions.clear_bill')}
+                      </Button>
+                      <div className="flex-1" />
+                      <Button type="submit" size="lg" className="px-8 shadow-md">
+                        {t('actions.save_bill')}
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button type="button" variant="outline" size="icon" className="h-11 w-11 border-primary/20 hover:bg-primary/5">
+                            <Printer className="h-5 w-5" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuItem onSelect={() => setTimeout(handlePrintThermal, 100)} className="gap-2 py-2">
+                            <Printer className="h-4 w-4" />
+                            {t('actions.thermal_receipt')}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => setTimeout(handlePrintA5, 100)} className="gap-2 py-2">
+                            <Printer className="h-4 w-4" />
+                            {t('actions.a5_print_out')}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                      <Button type="button" variant="outline" size="icon" onClick={handleWhatsApp} className="h-11 w-11 text-green-600 hover:text-green-700 hover:bg-green-50">
+                        <MessageCircle className="h-5 w-5" />
+                      </Button>
+                    </div>
+                  </CardFooter>
+                </Card>
+              </div>
+            </div>
           </form>
         </Form>
       </main >

@@ -25,7 +25,7 @@ interface TransactionContextType {
     addSupplier: (supplier: Omit<Supplier, 'id'>) => Promise<void>;
     updateSupplier: (supplier: Supplier) => void;
     customers: Customer[];
-    addCustomer: (customer: Omit<Customer, 'id'>) => Promise<void>;
+    addCustomer: (customer: Omit<Customer, 'id'>, silent?: boolean) => Promise<void>;
     updateCustomer: (customer: Customer) => void;
     dailySummaries: DailyAccountSummary[];
     saveDailySummary: (summary: DailyAccountSummary) => void;
@@ -39,8 +39,8 @@ interface TransactionContextType {
     products: Product[];
     addProduct: (product: Omit<Product, 'id'>) => Promise<void>;
     updateProduct: (product: Product) => void;
-    deleteProduct: (id: string) => Promise<void>;
-    deleteCustomer: (id: string) => Promise<void>;
+    deleteProduct: (id: string, silent?: boolean) => Promise<void>;
+    deleteCustomer: (id: string, silent?: boolean) => Promise<void>;
     loading: boolean;
 }
 
@@ -136,7 +136,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    const addCustomer = async (newCustomerData: Omit<Customer, 'id'>) => {
+    const addCustomer = async (newCustomerData: Omit<Customer, 'id'>, silent: boolean = false) => {
         if (!firestore) {
             const error = new Error("Firestore not initialized");
             console.error(error);
@@ -177,7 +177,9 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
                 paymentMethod: 'Credit',
             };
             await setDoc(paymentRef, newPayment);
-            toast({ title: 'Success', description: 'Customer added successfully.' });
+            if (!silent) {
+                toast({ title: 'Success', description: 'Customer added successfully.' });
+            }
 
         } catch (e: any) {
             console.error("Error adding customer:", e);
@@ -198,10 +200,13 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
 
         const batch = writeBatch(firestore);
 
-        // Calculate next bill number
-        const maxBillNumber = transactions.reduce((max, t) => {
-            return (t.billNumber || 0) > max ? (t.billNumber || 0) : max;
-        }, 0);
+        // Calculate next bill number for this specific date
+        const targetDate = newTransactions[0].date;
+        const maxBillNumber = transactions
+            .filter(t => t.date === targetDate)
+            .reduce((max, t) => {
+                return (t.billNumber || 0) > max ? (t.billNumber || 0) : max;
+            }, 0);
         const nextBillNumber = maxBillNumber + 1;
 
         newTransactions.forEach(t => {
@@ -388,7 +393,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
         });
     }
 
-    const deleteCustomer = async (customerId: string) => {
+    const deleteCustomer = async (customerId: string, silent: boolean = false) => {
         if (!firestore) return;
         const customerRef = doc(firestore, 'customers', customerId);
         const paymentRef = doc(firestore, 'customerPayments', customerId);
@@ -396,7 +401,9 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
         try {
             await deleteDoc(customerRef);
             await deleteDoc(paymentRef);
-            toast({ title: 'Success', description: 'Customer deleted successfully.' });
+            if (!silent) {
+                toast({ title: 'Success', description: 'Customer deleted successfully.' });
+            }
         } catch (e: any) {
             console.error("Error deleting customer:", e);
             const permissionError = new FirestorePermissionError({ path: customerRef.path, operation: 'delete' });
@@ -504,12 +511,14 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
         });
     }
 
-    const deleteProduct = async (productId: string) => {
+    const deleteProduct = async (productId: string, silent: boolean = false) => {
         if (!firestore) return;
         const productRef = doc(firestore, 'products', productId);
         try {
             await deleteDoc(productRef);
-            toast({ title: 'Success', description: 'Product deleted successfully.' });
+            if (!silent) {
+                toast({ title: 'Success', description: 'Product deleted successfully.' });
+            }
         } catch (e: any) {
             console.error("Error deleting product:", e);
             const permissionError = new FirestorePermissionError({ path: productRef.path, operation: 'delete' });

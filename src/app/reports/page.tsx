@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarIcon, Filter, Download } from "lucide-react";
-import { Calendar } from "@/components/ui/calendar";
+import { DatePickerCustom } from "@/components/ui/custom-date-picker";
 import { downloadCsv, formatCurrency, cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { useTransactions } from "@/context/transaction-provider";
@@ -50,6 +50,7 @@ export default function ReportsPage() {
   const [party, setParty] = useState('all');
   const [type, setType] = useState('all');
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>(transactions);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
   const handleGenerateReport = () => {
     let newFilteredTransactions = transactions;
@@ -114,7 +115,7 @@ export default function ReportsPage() {
           </CardHeader>
           <CardContent>
             <div className="flex flex-col md:flex-row items-center gap-4 mb-6">
-              <Popover>
+              <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     id="date"
@@ -139,14 +140,12 @@ export default function ReportsPage() {
                     )}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    initialFocus
+                <PopoverContent className="w-auto p-0 border-none shadow-none bg-transparent" align="start">
+                  <DatePickerCustom
                     mode="range"
-                    defaultMonth={date?.from}
                     selected={date}
-                    onSelect={setDate}
-                    numberOfMonths={2}
+                    onRangeSelect={setDate}
+                    onClose={() => setIsCalendarOpen(false)}
                   />
                 </PopoverContent>
               </Popover>
@@ -204,8 +203,8 @@ export default function ReportsPage() {
               </TableBody>
             </Table>
           </CardContent>
-        </Card>
-      </main>
+        </Card >
+      </main >
     </>
   );
 }
