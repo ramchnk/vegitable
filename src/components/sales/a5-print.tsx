@@ -129,7 +129,7 @@ export const A5Print = React.forwardRef<HTMLDivElement, A5PrintProps>((props, re
                     <div className="w-[20%] border-r border-black text-right px-1 py-1">{currentBalance.toFixed(2)}</div>
                     <div className="w-[30%] border-r border-black"></div>
                     <div className="w-[15%] border-r border-black text-center py-1 text-xs">Total Amount</div>
-                    <div className="w-[20%] text-right px-1 py-1">{totalAmount.toFixed(2)}</div>
+                    <div className="w-[20%] text-right px-1 py-1">{(totalAmount - paidAmount).toFixed(2)}</div>
                 </div>
             </div>
 

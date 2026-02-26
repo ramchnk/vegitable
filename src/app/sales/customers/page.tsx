@@ -29,7 +29,7 @@ import { AddCustomerDialog } from "@/components/sales/add-customer-dialog";
 import { EditCustomerDialog } from "@/components/sales/edit-customer-dialog";
 
 export default function SalesCustomersPage() {
-  const { customerPayments, updateCustomer, updateCustomerPayment, customers } = useTransactions();
+  const { customerPayments, updateCustomer, updateCustomerPayment, customers, deleteCustomer } = useTransactions();
   const [searchTerm, setSearchTerm] = useState("");
   const [editingCustomer, setEditingCustomer] = useState<PaymentDetail | null>(null);
 
@@ -46,6 +46,15 @@ export default function SalesCustomersPage() {
     updateCustomer(customer);
     updateCustomerPayment(payment);
     setEditingCustomer(null);
+  };
+
+  const handleDelete = async (customerId: string) => {
+    try {
+      await deleteCustomer(customerId);
+      setEditingCustomer(null);
+    } catch (err) {
+      console.error("Failed to delete customer:", err);
+    }
   };
 
   return (
@@ -159,6 +168,7 @@ export default function SalesCustomersPage() {
           open={!!editingCustomer}
           onOpenChange={(open) => !open && setEditingCustomer(null)}
           onSave={handleSave}
+          onDelete={handleDelete}
         />
       </main>
     </>

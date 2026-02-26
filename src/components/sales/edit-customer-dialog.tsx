@@ -41,6 +41,7 @@ interface EditCustomerDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (customer: Customer, payment: PaymentDetail) => void;
+  onDelete: (customerId: string) => void;
 }
 
 export function EditCustomerDialog({
@@ -48,6 +49,7 @@ export function EditCustomerDialog({
   open,
   onOpenChange,
   onSave,
+  onDelete,
 }: EditCustomerDialogProps) {
   const { customers } = useTransactions();
 
@@ -177,7 +179,17 @@ export function EditCustomerDialog({
               )}
             />
             <DialogFooter className="justify-between pt-4">
-              <Button type="button" variant="destructive" size="icon">
+              <Button
+                type="button"
+                variant="destructive"
+                size="icon"
+                onClick={() => {
+                  if (payment && window.confirm(`Are you sure you want to delete ${payment.partyName}?`)) {
+                    onDelete(payment.partyId);
+                    onOpenChange(false);
+                  }
+                }}
+              >
                 <Trash className="h-4 w-4" />
               </Button>
               <div className="flex gap-2">
