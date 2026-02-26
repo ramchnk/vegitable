@@ -60,13 +60,15 @@ export type Transaction = {
     id: string;
     date: string;
     party: string;
-    type: "Sale" | "Purchase";
+    type: "Sale" | "Purchase" | "Payment";
     item: string;
     amount: number;
     payment: string;
     billNumber?: number;
     quantity?: number;
     price?: number;
+    debit?: number;
+    credit?: number;
 }
 
 export type DailyAccountSummary = {

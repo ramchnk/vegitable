@@ -18,6 +18,7 @@ import { useTransactions } from '@/context/transaction-provider';
 import { BuyersLedgerDialog } from '@/components/settings/buyers-ledger-dialog';
 import { SupplierLedgerDialog } from '@/components/settings/supplier-ledger-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/context/language-context';
 import type { DailyAccountSummary } from '@/lib/types';
 
 
@@ -33,7 +34,7 @@ const SummaryCard = ({ title, titleClassName, titleTextClassName, children }: { 
 );
 
 const DefaultSummaryCard = ({ title, children }: { title: string, children: React.ReactNode }) => (
-     <Card>
+    <Card>
         <CardHeader className="p-3 rounded-t-lg border-b bg-card">
             <CardTitle className="text-sm font-medium text-card-foreground">{title}</CardTitle>
         </CardHeader>
@@ -51,6 +52,7 @@ export default function AccountsPage() {
     const [isSupplierLedgerOpen, setIsSupplierLedgerOpen] = useState(false);
     const { transactions, dailySummaries, saveDailySummary } = useTransactions();
     const { toast } = useToast();
+    const { t } = useLanguage();
 
     const [openingBalance, setOpeningBalance] = useState(0);
     const [totalExpenses, setTotalExpenses] = useState(0);
@@ -73,12 +75,12 @@ export default function AccountsPage() {
 
     const { dailySales, totalSales } = useMemo(() => {
         if (!activeDate) return { dailySales: [], totalSales: 0 };
-        
-        const salesForDate = transactions.filter(t => 
-            t.type === 'Sale' && 
+
+        const salesForDate = transactions.filter(t =>
+            t.type === 'Sale' &&
             format(new Date(t.date), 'yyyy-MM-dd') === format(activeDate, 'yyyy-MM-dd')
         );
-        
+
         const salesByCustomer = salesForDate.reduce((acc, curr) => {
             if (!acc[curr.party]) {
                 acc[curr.party] = 0;
@@ -95,12 +97,12 @@ export default function AccountsPage() {
 
     const { dailyPurchases, totalPurchases } = useMemo(() => {
         if (!activeDate) return { dailyPurchases: [], totalPurchases: 0 };
-        
-        const purchasesForDate = transactions.filter(t => 
-            t.type === 'Purchase' && 
+
+        const purchasesForDate = transactions.filter(t =>
+            t.type === 'Purchase' &&
             format(new Date(t.date), 'yyyy-MM-dd') === format(activeDate, 'yyyy-MM-dd')
         );
-        
+
         const purchasesBySupplier = purchasesForDate.reduce((acc, curr) => {
             if (!acc[curr.party]) {
                 acc[curr.party] = 0;
@@ -114,7 +116,7 @@ export default function AccountsPage() {
 
         return { dailyPurchases: dailyPurchasesData, totalPurchases: total };
     }, [activeDate, transactions]);
-    
+
     const handleLoad = () => {
         setActiveDate(selectedDate);
     }
@@ -149,7 +151,7 @@ export default function AccountsPage() {
 
     return (
         <>
-            <Header title="Today's Transaction">
+            <Header title={t('accounts.title')}>
                 <div className="flex items-center gap-2">
                     <Popover>
                         <PopoverTrigger asChild>
@@ -161,7 +163,7 @@ export default function AccountsPage() {
                                 )}
                             >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {selectedDate ? format(selectedDate, "dd-MM-yyyy") : <span>Pick a date</span>}
+                                {selectedDate ? format(selectedDate, "dd-MM-yyyy") : <span>{t('forms.pick_date')}</span>}
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0">
@@ -173,12 +175,12 @@ export default function AccountsPage() {
                             />
                         </PopoverContent>
                     </Popover>
-                    <Button onClick={handleLoad}>Load</Button>
+                    <Button onClick={handleLoad}>{t('accounts.load')}</Button>
                 </div>
             </Header>
             <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6 bg-background">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <DefaultSummaryCard title="Opening Balance">
+                    <DefaultSummaryCard title={t('accounts.opening_balance')}>
                         <Input
                             type="number"
                             placeholder="0"
@@ -186,7 +188,7 @@ export default function AccountsPage() {
                             onChange={(e) => setOpeningBalance(parseFloat(e.target.value) || 0)}
                         />
                     </DefaultSummaryCard>
-                    <DefaultSummaryCard title="Total Expenses">
+                    <DefaultSummaryCard title={t('accounts.total_expenses')}>
                         <Input
                             type="number"
                             placeholder="0"
@@ -197,12 +199,12 @@ export default function AccountsPage() {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <SummaryCard title="Money Out (Supplier Advance)" titleClassName="bg-destructive" titleTextClassName="text-destructive-foreground">
+                    <SummaryCard title={t('accounts.money_out')} titleClassName="bg-destructive" titleTextClassName="text-destructive-foreground">
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Farmer</TableHead>
-                                    <TableHead className="text-right">Amount</TableHead>
+                                    <TableHead>{t('forms.supplier')}</TableHead>
+                                    <TableHead className="text-right">{t('forms.amount')}</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -227,29 +229,29 @@ export default function AccountsPage() {
                             </TableFooter>
                         </Table>
                     </SummaryCard>
-                    <SummaryCard title="Money In (Customer Receipts)" titleClassName="bg-secondary" titleTextClassName="text-secondary-foreground">
-                         <Table>
+                    <SummaryCard title={t('accounts.money_in')} titleClassName="bg-secondary" titleTextClassName="text-secondary-foreground">
+                        <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Customer</TableHead>
-                                    <TableHead className="text-right">Amount</TableHead>
+                                    <TableHead>{t('forms.customer')}</TableHead>
+                                    <TableHead className="text-right">{t('forms.amount')}</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                 {dailySales.length > 0 ? (
+                                {dailySales.length > 0 ? (
                                     dailySales.map(sale => (
                                         <TableRow key={sale.customer}>
                                             <TableCell>{sale.customer}</TableCell>
                                             <TableCell className="text-right">{formatCurrency(sale.amount)}</TableCell>
                                         </TableRow>
                                     ))
-                                 ) : (
+                                ) : (
                                     <TableRow>
                                         <TableCell colSpan={2} className="text-center">No receipts for this date.</TableCell>
                                     </TableRow>
-                                 )}
+                                )}
                             </TableBody>
-                             <TableFooter>
+                            <TableFooter>
                                 <TableRow>
                                     <TableCell className="font-bold">Total</TableCell>
                                     <TableCell className="text-right font-bold">{formatCurrency(totalSales)}</TableCell>
@@ -260,28 +262,28 @@ export default function AccountsPage() {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    <SummaryCard title="Final Summary" titleClassName="bg-primary" titleTextClassName="text-primary-foreground">
+                    <SummaryCard title={t('accounts.final_summary')} titleClassName="bg-primary" titleTextClassName="text-primary-foreground">
                         <div className="space-y-2 text-sm">
-                            <div className="flex justify-between"><span>Opening Balance / Debit</span><span>{formatCurrency(openingBalance)}</span></div>
-                             <p className="font-semibold text-primary">Credits</p>
-                             <div className="flex justify-between pl-4"><span>Ready Cash</span><span>0</span></div>
-                             <div className="flex justify-between pl-4"><span>Money In</span><span>{formatCurrency(totalSales)}</span></div>
-                             <p className="font-semibold text-destructive">Debit</p>
-                             <div className="flex justify-between pl-4"><span>Money Out</span><span>{formatCurrency(totalPurchases)}</span></div>
-                             <div className="flex justify-between pl-4"><span>Total Expenses</span><span>{formatCurrency(totalExpenses)}</span></div>
-                             <hr className="my-2"/>
-                            <div className="flex justify-between font-bold"><span>Closing Balance</span><span>{formatCurrency(closingBalance)}</span></div>
+                            <div className="flex justify-between"><span>{t('payments.opening_balance_debit')}</span><span>{formatCurrency(openingBalance)}</span></div>
+                            <p className="font-semibold text-primary">{t('forms.credit')}</p>
+                            <div className="flex justify-between pl-4"><span>{t('accounts.ready_cash')}</span><span>0</span></div>
+                            <div className="flex justify-between pl-4"><span>{t('accounts.money_in')}</span><span>{formatCurrency(totalSales)}</span></div>
+                            <p className="font-semibold text-destructive">{t('forms.debit')}</p>
+                            <div className="flex justify-between pl-4"><span>{t('accounts.money_out')}</span><span>{formatCurrency(totalPurchases)}</span></div>
+                            <div className="flex justify-between pl-4"><span>{t('accounts.total_expenses')}</span><span>{formatCurrency(totalExpenses)}</span></div>
+                            <hr className="my-2" />
+                            <div className="flex justify-between font-bold"><span>{t('payments.closing_balance')}</span><span>{formatCurrency(closingBalance)}</span></div>
                         </div>
                     </SummaryCard>
 
-                    <SummaryCard title="Sales Summary" titleClassName="bg-accent" titleTextClassName="text-accent-foreground">
-                       <div className="space-y-2 text-sm">
-                            <div className="flex justify-between"><span>Ready Cash</span><span>0</span></div>
-                            <div className="flex justify-between"><span>GPay</span><span>0</span></div>
-                            <div className="flex justify-between"><span>Credit</span><span>2000</span></div>
-                            <hr className="my-2 border-accent-foreground/20"/>
-                            <div className="flex justify-between font-bold"><span>Total Sales</span><span>0</span></div>
-                             <div className="flex justify-between text-destructive"><span>Discount</span><span>0</span></div>
+                    <SummaryCard title={t('accounts.sales_summary')} titleClassName="bg-accent" titleTextClassName="text-accent-foreground">
+                        <div className="space-y-2 text-sm">
+                            <div className="flex justify-between"><span>{t('accounts.ready_cash')}</span><span>0</span></div>
+                            <div className="flex justify-between"><span>{t('forms.gpay')}</span><span>0</span></div>
+                            <div className="flex justify-between"><span>{t('forms.credit')}</span><span>2000</span></div>
+                            <hr className="my-2 border-accent-foreground/20" />
+                            <div className="flex justify-between font-bold"><span>{t('dashboard.sales')}</span><span>0</span></div>
+                            <div className="flex justify-between text-destructive"><span>{t('forms.discount')}</span><span>0</span></div>
                         </div>
                     </SummaryCard>
 
@@ -294,26 +296,26 @@ export default function AccountsPage() {
                         </div>
                     </SummaryCard>
                 </div>
-                
+
                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-base">Final Note</CardTitle>
+                        <CardTitle className="text-base">{t('accounts.final_note')}</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <Textarea 
+                        <Textarea
                             id="final-note"
-                            placeholder="Enter any notes for the day..."
+                            placeholder={t('accounts.final_note')}
                             value={finalNote}
                             onChange={(e) => setFinalNote(e.target.value)}
                         />
                     </CardContent>
                 </Card>
 
-                
+
                 <div className="flex flex-col md:flex-row items-center justify-center gap-4 pt-4">
-                    <Button onClick={handleSave}>Save</Button>
-                    <Button variant="outline" className="bg-accent hover:bg-accent/90 text-accent-foreground w-full md:w-auto" onClick={() => setIsSupplierLedgerOpen(true)}>Supplier Ledger</Button>
-                    <Button variant="default" className="w-full md:w-auto" onClick={() => setIsBuyerLedgerOpen(true)}>Buyer's Ledger</Button>
+                    <Button onClick={handleSave}>{t('actions.save')}</Button>
+                    <Button variant="outline" className="bg-accent hover:bg-accent/90 text-accent-foreground w-full md:w-auto" onClick={() => setIsSupplierLedgerOpen(true)}>{t('accounts.supplier_ledger')}</Button>
+                    <Button variant="default" className="w-full md:w-auto" onClick={() => setIsBuyerLedgerOpen(true)}>{t('accounts.buyer_ledger')}</Button>
                 </div>
             </main>
             <BuyersLedgerDialog

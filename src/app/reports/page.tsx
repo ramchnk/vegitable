@@ -34,9 +34,11 @@ import { downloadCsv, formatCurrency, cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { useTransactions } from "@/context/transaction-provider";
 import type { Transaction } from "@/lib/types";
+import { useLanguage } from "@/context/language-context";
 
 export default function ReportsPage() {
   const { transactions, customers, suppliers } = useTransactions();
+  const { t } = useLanguage();
 
   const allParties = [
     ...customers.map(c => c.name),
@@ -97,18 +99,18 @@ export default function ReportsPage() {
   }
   return (
     <>
-      <Header title="Transaction Report">
+      <Header title={t('reports.title')}>
         <Button size="sm" variant="outline" className="gap-1" onClick={handleExport}>
           <Download className="h-4 w-4" />
-          Export CSV
+          {t('actions.export_csv')}
         </Button>
       </Header>
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6">
         <Card>
           <CardHeader>
-            <CardTitle>Generate Report</CardTitle>
+            <CardTitle>{t('reports.generate')}</CardTitle>
             <CardDescription>
-              Filter and generate reports for sales and purchases.
+              {t('reports.desc')}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -134,7 +136,7 @@ export default function ReportsPage() {
                         format(date.from, "LLL dd, y")
                       )
                     ) : (
-                      <span>Pick a date range</span>
+                      <span>{t('date.pick_date_range')}</span>
                     )}
                   </Button>
                 </PopoverTrigger>
@@ -170,19 +172,19 @@ export default function ReportsPage() {
               </Select>
               <Button className="w-full md:w-auto gap-2" onClick={handleGenerateReport}>
                 <Filter className="h-4 w-4" />
-                Generate
+                {t('reports.generate_btn')}
               </Button>
             </div>
 
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Party</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Item</TableHead>
-                  <TableHead>Payment</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead>{t('forms.date')}</TableHead>
+                  <TableHead>{t('forms.party')}</TableHead>
+                  <TableHead>{t('forms.type')}</TableHead>
+                  <TableHead>{t('forms.item')}</TableHead>
+                  <TableHead>{t('forms.payment_type')}</TableHead>
+                  <TableHead className="text-right">{t('forms.amount')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -201,8 +203,8 @@ export default function ReportsPage() {
               </TableBody>
             </Table>
           </CardContent>
-        </Card>
-      </main>
+        </Card >
+      </main >
     </>
   );
 }

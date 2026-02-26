@@ -49,6 +49,7 @@ import { cn, formatCurrency } from "@/lib/utils";
 import { useTransactions } from "@/context/transaction-provider";
 
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/context/language-context";
 
 const intakeItemSchema = z.object({
   itemId: z.string().min(1, "Item is required."),
@@ -68,6 +69,7 @@ type IntakeFormValues = z.infer<typeof intakeFormSchema>;
 export default function VegetableIntakePage() {
   const { suppliers, supplierPayments, addTransaction, products } = useTransactions();
   const { toast } = useToast();
+  const { t } = useLanguage();
   const [outstanding, setOutstanding] = useState(0);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
@@ -77,7 +79,7 @@ export default function VegetableIntakePage() {
       supplierId: "",
       collectionDate: new Date(),
       items: [],
-      amountPaid: 0,
+      amountPaid: undefined,
     },
   });
 
@@ -141,7 +143,7 @@ export default function VegetableIntakePage() {
       supplierId: data.supplierId, // Keep supplier selected
       collectionDate: new Date(),
       items: [],
-      amountPaid: 0,
+      amountPaid: undefined,
     });
   }
 
@@ -171,6 +173,7 @@ export default function VegetableIntakePage() {
 
   const handleItemSelect = (itemId: string) => {
     setNewItemId(itemId);
+    const product = products.find(p => p.id === itemId);
     if (product) {
       setNewItemPrice("");
     }
@@ -178,14 +181,14 @@ export default function VegetableIntakePage() {
 
   return (
     <>
-      <Header title="Purchase" />
+      <Header title={t('nav.purchase')} />
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <Card>
               <CardHeader>
-                <CardTitle>Log New Item Intake</CardTitle>
-                <CardDescription>Log details of item collected from farmers.</CardDescription>
+                <CardTitle>{t('forms.log_intake_title')}</CardTitle>
+                <CardDescription>{t('forms.log_intake_desc')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -194,15 +197,15 @@ export default function VegetableIntakePage() {
                     name="supplierId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Supplier</FormLabel>
+                        <FormLabel>{t('forms.supplier')}</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Select a supplier" />
+                              <SelectValue placeholder={t('forms.select_supplier')} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                            {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name} - {s.code}</SelectItem>)}
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -214,7 +217,7 @@ export default function VegetableIntakePage() {
                     name="collectionDate"
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
-                        <FormLabel>Collection Date</FormLabel>
+                        <FormLabel>{t('forms.collection_date')}</FormLabel>
                         <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                           <PopoverTrigger asChild>
                             <FormControl>
@@ -225,7 +228,7 @@ export default function VegetableIntakePage() {
                                   !field.value && "text-muted-foreground"
                                 )}
                               >
-                                {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                {field.value ? format(field.value, "PPP") : <span>{t('date.pick_date')}</span>}
                                 <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                               </Button>
                             </FormControl>
@@ -248,28 +251,28 @@ export default function VegetableIntakePage() {
                 <div className="space-y-2 rounded-lg border p-4">
                   <div className="grid grid-cols-1 md:grid-cols-8 gap-4 items-end">
                     <div className="md:col-span-3">
-                      <Label>Item</Label>
+                      <Label>{t('forms.item')}</Label>
                       <Select onValueChange={handleItemSelect} value={newItemId}>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select Item" />
+                          <SelectValue placeholder={t('forms.select_item')} />
                         </SelectTrigger>
                         <SelectContent>
-                          {products.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                          {products.map(p => <SelectItem key={p.id} value={p.id}>{p.itemCode} - {p.name}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="md:col-span-2">
-                      <Label>Weight / Quantity (Kg)</Label>
+                      <Label>{t('forms.weight_kg')}</Label>
                       <Input placeholder="e.g. 120" value={newItemQuantity} onChange={e => setNewItemQuantity(e.target.value)} type="number" />
                     </div>
                     <div className="md:col-span-2">
-                      <Label>Price (per Kg)</Label>
+                      <Label>{t('forms.price_kg')}</Label>
                       <Input placeholder="e.g. 50" value={newItemPrice} onChange={e => setNewItemPrice(e.target.value)} type="number" />
                     </div>
                     <div className="md:col-span-1">
                       <Button type="button" size="icon" onClick={handleAddItem} className="w-full">
                         <Plus className="h-4 w-4" />
-                        <span className="sr-only">Add Item</span>
+                        <span className="sr-only">{t('forms.add_item')}</span>
                       </Button>
                     </div>
                   </div>
@@ -277,22 +280,22 @@ export default function VegetableIntakePage() {
 
                 {/* Items Table */}
                 <div>
-                  <FormLabel>Items</FormLabel>
+                  <FormLabel>{t('forms.items')}</FormLabel>
                   <div className="rounded-md border">
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Item</TableHead>
-                          <TableHead className="text-right">Kg</TableHead>
-                          <TableHead className="text-right">Price</TableHead>
-                          <TableHead className="text-right">Total</TableHead>
-                          <TableHead><span className="sr-only">Actions</span></TableHead>
+                          <TableHead>{t('forms.item')}</TableHead>
+                          <TableHead className="text-right">{t('forms.quantity')} (Kg)</TableHead>
+                          <TableHead className="text-right">{t('forms.price')}</TableHead>
+                          <TableHead className="text-right">{t('forms.total')}</TableHead>
+                          <TableHead><span className="sr-only">{t('forms.actions')}</span></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {fields.length === 0 && (
                           <TableRow>
-                            <TableCell colSpan={5} className="text-center">No items added.</TableCell>
+                            <TableCell colSpan={5} className="text-center">{t('forms.no_items')}</TableCell>
                           </TableRow>
                         )}
                         {fields.map((field, index) => {
@@ -321,26 +324,26 @@ export default function VegetableIntakePage() {
                 <div className="flex justify-end">
                   <div className="w-full max-w-sm space-y-4">
                     <div className="grid grid-cols-2 gap-4 items-center">
-                      <span className="font-medium text-muted-foreground">Outstanding</span>
+                      <span className="font-medium text-muted-foreground">{t('forms.outstanding')}</span>
                       <span className="text-right font-medium">{formatCurrency(outstanding)}</span>
                     </div>
                     <div className="grid grid-cols-2 gap-4 items-center">
-                      <span className="font-medium text-muted-foreground">Total Cost</span>
+                      <span className="font-medium text-muted-foreground">{t('forms.total_cost')}</span>
                       <span className="text-right font-medium">{formatCurrency(totalCost)}</span>
                     </div>
                     <div className="grid grid-cols-2 gap-4 items-center font-bold text-lg">
-                      <span>Total</span>
+                      <span>{t('forms.total')}</span>
                       <span className="text-right">{formatCurrency(total)}</span>
                     </div>
                     <div className="grid grid-cols-2 gap-4 items-center">
-                      <FormLabel htmlFor="amountPaid">Amount Paid</FormLabel>
+                      <FormLabel htmlFor="amountPaid">{t('forms.amount_paid')}</FormLabel>
                       <FormField
                         control={form.control}
                         name="amountPaid"
                         render={({ field }) => (
                           <FormItem>
                             <FormControl>
-                              <Input id="amountPaid" type="number" className="text-right" {...field} />
+                              <Input id="amountPaid" type="number" className="text-right" {...field} value={field.value ?? ""} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -348,7 +351,7 @@ export default function VegetableIntakePage() {
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-4 items-center">
-                      <span className="font-medium text-muted-foreground">Balance Amount</span>
+                      <span className="font-medium text-muted-foreground">{t('forms.balance_amount')}</span>
                       <span className="text-right font-medium">{formatCurrency(balanceAmount)}</span>
                     </div>
                   </div>
@@ -356,7 +359,7 @@ export default function VegetableIntakePage() {
 
               </CardContent>
               <CardFooter>
-                <Button type="submit" size="lg">Submit Intake</Button>
+                <Button type="submit" size="lg">{t('forms.submit_intake')}</Button>
               </CardFooter>
             </Card>
           </form>

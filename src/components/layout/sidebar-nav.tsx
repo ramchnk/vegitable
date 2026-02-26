@@ -30,20 +30,22 @@ import {
 } from "lucide-react";
 
 
-const menuItems = [
-    { href: '/dashboard', label: 'Dashboard', icon: LineChart, key: 'dashboard' },
-    { href: '/vegetable-intake', label: 'Purchase', icon: ShoppingBasket, key: 'vegetable-intake' },
-    { href: '/sales', label: 'Sales', icon: ShoppingCart, key: 'sales' },
-    { href: '/credits', label: 'Payments', icon: CreditCard, key: 'credits' },
-    { href: '/products', label: 'Items', icon: Package, key: 'products' },
-    { href: '/purchase/suppliers', label: 'Supplier', icon: Users, key: 'suppliers' },
-    { href: '/sales/customers', label: 'Customer', icon: User, key: 'customers' },
-    { href: '/login', label: 'Log out', icon: LogOut, key: 'logout' },
+import { useLanguage } from "@/context/language-context";
 
+const menuItems = [
+    { href: '/dashboard', labelKey: 'nav.dashboard', icon: LineChart, key: 'dashboard' },
+    { href: '/vegetable-intake', labelKey: 'nav.purchase', icon: ShoppingBasket, key: 'vegetable-intake' },
+    { href: '/sales', labelKey: 'nav.sales', icon: ShoppingCart, key: 'sales' },
+    { href: '/credits', labelKey: 'nav.payments', icon: CreditCard, key: 'credits' },
+    { href: '/products', labelKey: 'nav.products', icon: Package, key: 'products' },
+    { href: '/purchase/suppliers', labelKey: 'nav.suppliers', icon: Users, key: 'suppliers' },
+    { href: '/sales/customers', labelKey: 'nav.customers', icon: User, key: 'customers' },
+    { href: '/login', labelKey: 'nav.logout', icon: LogOut, key: 'logout' },
 ]
 
 export function SidebarNav() {
     const pathname = usePathname();
+    const { t, language } = useLanguage();
 
     const getIsActive = (href: string, currentPathname: string) => {
         if (href === '/dashboard') {
@@ -52,8 +54,11 @@ export function SidebarNav() {
         if (href === '#' || href === '/login') {
             return false;
         }
-        if (href === '/sales' && currentPathname.startsWith('/sales/customers')) {
+        if (href === '/sales' && (currentPathname.startsWith('/sales/customers') || currentPathname.startsWith('/sales/payments'))) {
             return false;
+        }
+        if (href === '/credits' && (currentPathname.startsWith('/credits') || currentPathname.startsWith('/sales/payments') || currentPathname.startsWith('/purchase/payments'))) {
+            return true;
         }
         return currentPathname.startsWith(href);
     }
@@ -82,7 +87,7 @@ export function SidebarNav() {
                             >
                                 <Link href={item.href}>
                                     <item.icon className="mr-2 h-4 w-4" />
-                                    {item.label}
+                                    {t(item.labelKey)}
                                 </Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>

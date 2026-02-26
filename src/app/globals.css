@@ -106,3 +106,38 @@
     opacity: 0.5 !important;
   }
 }
+
+@media print {
+
+  /* Hide sidebar, header, and buttons */
+  aside,
+  header,
+  nav,
+  button,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Ensure the main content takes full width and remove padding */
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
+
+  /* Reset background colors for better printing */
+  .bg-muted\/50 {
+    background-color: transparent !important;
+    border: 1px solid #e2e8f0 !important;
+  }
+
+  /* Ensure text is black for clarity */
+  * {
+    color: black !important;
+  }
+
+  /* Force page breaks if needed */
+  .page-break {
+    page-break-before: always;
+  }
+}

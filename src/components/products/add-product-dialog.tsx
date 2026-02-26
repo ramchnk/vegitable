@@ -25,6 +25,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { useState } from "react";
 import { useTransactions } from "@/context/transaction-provider";
+import { useLanguage } from "@/context/language-context";
 
 const productFormSchema = z.object({
   itemCode: z.string().min(1, "Item code is required"),
@@ -36,6 +37,7 @@ type ProductFormValues = z.infer<typeof productFormSchema>;
 export function AddProductDialog({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const { addProduct } = useTransactions();
+  const { t } = useLanguage();
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
     defaultValues: {
@@ -59,9 +61,9 @@ export function AddProductDialog({ children }: { children: React.ReactNode }) {
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Add Product</DialogTitle>
+          <DialogTitle>{t('products.add_product_title')}</DialogTitle>
           <DialogDescription>
-            Enter the details of the new product.
+            {t('products.add_product_desc')}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -72,7 +74,7 @@ export function AddProductDialog({ children }: { children: React.ReactNode }) {
                 name="itemCode"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Item Code</FormLabel>
+                    <FormLabel>{t('products.item_code')}</FormLabel>
                     <FormControl>
                       <Input placeholder="e.g. VEG006" {...field} />
                     </FormControl>
@@ -85,7 +87,7 @@ export function AddProductDialog({ children }: { children: React.ReactNode }) {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Item Name</FormLabel>
+                    <FormLabel>{t('products.item_name')}</FormLabel>
                     <FormControl>
                       <Input placeholder="e.g. Bell Pepper" {...field} />
                     </FormControl>
@@ -96,7 +98,7 @@ export function AddProductDialog({ children }: { children: React.ReactNode }) {
             </div>
 
             <DialogFooter>
-              <Button type="submit">Save Product</Button>
+              <Button type="submit">{t('products.save_product')}</Button>
             </DialogFooter>
           </form>
         </Form>
