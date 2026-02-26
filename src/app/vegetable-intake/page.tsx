@@ -36,7 +36,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
+import { DatePickerCustom } from "@/components/ui/custom-date-picker";
 import {
   Table,
   TableBody,
@@ -69,6 +69,7 @@ export default function VegetableIntakePage() {
   const { suppliers, supplierPayments, addTransaction, products } = useTransactions();
   const { toast } = useToast();
   const [outstanding, setOutstanding] = useState(0);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
   const form = useForm<IntakeFormValues>({
     resolver: zodResolver(intakeFormSchema),
@@ -124,6 +125,8 @@ export default function VegetableIntakePage() {
         item: product?.name || 'Unknown Item',
         amount: item.price * item.quantity,
         payment: paymentMethod,
+        quantity: item.quantity,
+        price: item.price,
       };
     });
 
@@ -212,7 +215,7 @@ export default function VegetableIntakePage() {
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
                         <FormLabel>Collection Date</FormLabel>
-                        <Popover>
+                        <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                           <PopoverTrigger asChild>
                             <FormControl>
                               <Button
@@ -227,12 +230,11 @@ export default function VegetableIntakePage() {
                               </Button>
                             </FormControl>
                           </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
+                          <PopoverContent className="w-auto p-0 border-none shadow-none bg-transparent" align="start">
+                            <DatePickerCustom
                               selected={field.value}
                               onSelect={field.onChange}
-                              initialFocus
+                              onClose={() => setIsCalendarOpen(false)}
                             />
                           </PopoverContent>
                         </Popover>

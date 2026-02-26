@@ -22,23 +22,24 @@ import {
     LineChart,
     LogOut,
     ShoppingCart,
+    ShoppingBasket,
     CreditCard,
     Users,
     User,
-    BookUser,
+    Package,
 } from "lucide-react";
 
 
 const menuItems = [
     { href: '/dashboard', label: 'Dashboard', icon: LineChart, key: 'dashboard' },
-    { href: '/vegetable-intake', label: 'Purchase', icon: Leaf, key: 'vegetable-intake' },
+    { href: '/vegetable-intake', label: 'Purchase', icon: ShoppingBasket, key: 'vegetable-intake' },
     { href: '/sales', label: 'Sales', icon: ShoppingCart, key: 'sales' },
     { href: '/credits', label: 'Payments', icon: CreditCard, key: 'credits' },
-    { href: '/products', label: 'Product Master', icon: Leaf, key: 'products' },
+    { href: '/products', label: 'Items', icon: Package, key: 'products' },
     { href: '/purchase/suppliers', label: 'Supplier', icon: Users, key: 'suppliers' },
     { href: '/sales/customers', label: 'Customer', icon: User, key: 'customers' },
-    { href: '/settings', label: 'Accounts', icon: BookUser, key: 'settings' },
     { href: '/login', label: 'Log out', icon: LogOut, key: 'logout' },
+
 ]
 
 export function SidebarNav() {

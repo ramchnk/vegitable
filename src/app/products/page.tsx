@@ -17,6 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,6 +35,12 @@ export default function ProductsPage() {
   const { products, deleteProduct } = useTransactions();
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [openEditDialog, setOpenEditDialog] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const filteredProducts = products.filter(product =>
+    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    product.itemCode.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const handleExport = () => {
     downloadCsv(products, 'products.csv');
@@ -54,6 +61,12 @@ export default function ProductsPage() {
     <>
       <Header title="Products">
         <div className="flex items-center gap-2">
+          <Input
+            placeholder="Search products..."
+            className="w-64 h-9"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
           <AddProductDialog>
             <Button size="sm" className="gap-1">
               <PlusCircle className="h-4 w-4" />
@@ -68,59 +81,71 @@ export default function ProductsPage() {
       </Header>
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6">
         <Card>
-          <CardHeader>
-            <CardTitle>Product Catalog</CardTitle>
-            <CardDescription>
-              Manage your vegetable products and their pricing.
-            </CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <div>
+              <CardTitle>Product Catalog</CardTitle>
+              <CardDescription>
+                Manage your vegetable products and their pricing.
+              </CardDescription>
+            </div>
+            <div className="text-sm text-muted-foreground font-medium">
+              Total Products: {filteredProducts.length}
+            </div>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Item Code</TableHead>
-                  <TableHead>Item Name</TableHead>
-
-                  <TableHead>
-                    <span className="sr-only">Actions</span>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {products.map((product) => (
-                  <TableRow key={product.id}>
-                    <TableCell className="font-medium">{product.itemCode}</TableCell>
-                    <TableCell>{product.name}</TableCell>
-
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            aria-haspopup="true"
-                            size="icon"
-                            variant="ghost"
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                            <span className="sr-only">Toggle menu</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onSelect={() => setTimeout(() => handleEdit(product), 0)}>
-                            <Edit className="h-4 w-4 mr-2" /> Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="text-destructive focus:text-destructive"
-                            onSelect={() => handleDelete(product.id)}
-                          >
-                            <Trash className="h-4 w-4 mr-2" /> Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
+            <div className="rounded-md border max-h-[60vh] overflow-y-auto relative">
+              <Table>
+                <TableHeader className="sticky top-0 bg-secondary z-10 shadow-sm">
+                  <TableRow>
+                    <TableHead className="w-[150px]">Item Code</TableHead>
+                    <TableHead>Item Name</TableHead>
+                    <TableHead className="text-right w-[100px]">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredProducts.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={3} className="h-24 text-center">
+                        No products found.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredProducts.map((product) => (
+                      <TableRow key={product.id}>
+                        <TableCell className="font-medium font-mono capitalize">{product.itemCode}</TableCell>
+                        <TableCell className="capitalize">{product.name}</TableCell>
+
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                aria-haspopup="true"
+                                size="icon"
+                                variant="ghost"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                                <span className="sr-only">Toggle menu</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onSelect={() => setTimeout(() => handleEdit(product), 0)}>
+                                <Edit className="h-4 w-4 mr-2" /> Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onSelect={() => handleDelete(product.id)}
+                              >
+                                <Trash className="h-4 w-4 mr-2" /> Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       </main>

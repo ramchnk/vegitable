@@ -9,7 +9,7 @@
     --card: 0 0% 100%;
     --card-foreground: 120 30% 25%;
     --popover: 0 0% 100%;
-    --popover-foreground: 120 30% 25%;
+    --popover-foreground: 164 86% 16%;
     --primary: 120 61% 34%;
     --primary-foreground: 0 0% 98%;
     --secondary: 0 0% 92%;
@@ -38,6 +38,7 @@
     --sidebar-border: 0 0% 89.8%;
     --sidebar-ring: 120 61% 34%;
   }
+
   .dark {
     --background: 120 10% 5%;
     --foreground: 0 0% 98%;
@@ -78,7 +79,30 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
+  }
+
+  /* Nuclear overrides for cmdk internal elements */
+  [cmdk-root],
+  [cmdk-list],
+  [cmdk-group],
+  [cmdk-item],
+  [cmdk-item] *,
+  [cmdk-item] span,
+  [role="option"],
+  [role="option"] *,
+  [role="menuitem"],
+  [role="menuitem"] * {
+    color: #064e3b !important;
+    font-weight: 700 !important;
+    opacity: 1 !important;
+  }
+
+  /* Ensure placeholders and icons also match */
+  [cmdk-input]::placeholder {
+    color: #064e3b !important;
+    opacity: 0.5 !important;
   }
 }
