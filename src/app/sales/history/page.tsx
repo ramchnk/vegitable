@@ -4,7 +4,6 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
 import {
-    ChevronLeft,
     Search,
     Calendar as CalendarIcon,
     FilterX,
@@ -64,6 +63,7 @@ import { ThermalPrint } from "@/components/sales/thermal-print";
 import { A5Print } from "@/components/sales/a5-print";
 
 interface GroupedSale {
+    id: string;
     billNumber: number;
     date: string;
     party: string;
@@ -88,14 +88,20 @@ export default function SalesHistoryPage() {
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
     const groupedSales = useMemo(() => {
-        const groups: { [key: number]: GroupedSale } = {};
+        const groups: { [key: string]: GroupedSale } = {};
 
         transactions
-            .filter((t) => t.type === "Sale")
+            .filter((t) => t.type === "Sale" || t.type === "Payment")
             .forEach((t) => {
                 const billNo = t.billNumber || 0;
-                if (!groups[billNo]) {
-                    groups[billNo] = {
+                const dateStr = t.date; // already YYYY-MM-DD
+
+                // For payments, we use a unique key per transaction since they don't have bill numbers
+                const groupKey = t.type === "Payment" ? `payment_${t.id}` : `${dateStr}_${billNo}`;
+
+                if (!groups[groupKey]) {
+                    groups[groupKey] = {
+                        id: groupKey,
                         billNumber: billNo,
                         date: t.date,
                         party: t.party,
@@ -104,13 +110,26 @@ export default function SalesHistoryPage() {
                         items: []
                     };
                 }
-                groups[billNo].totalAmount += t.amount;
-                groups[billNo].items.push({
-                    name: t.item,
-                    quantity: t.quantity || 0,
-                    price: t.price || 0,
-                    total: t.amount
-                });
+
+                if (t.type === "Sale") {
+                    groups[groupKey].totalAmount += t.amount;
+                    groups[groupKey].items.push({
+                        name: t.item,
+                        quantity: t.quantity || 0,
+                        price: t.price || 0,
+                        total: t.amount
+                    });
+                } else if (t.type === "Payment") {
+                    groups[groupKey].totalAmount = t.amount;
+                    groups[groupKey].items.push({
+                        name: t.item || "Payment Received/Given",
+                        quantity: 0,
+                        price: t.amount,
+                        total: t.amount
+                    });
+                    // For payments, we want the type to be clear in the list
+                    groups[groupKey].payment = `Payment (${t.payment})`;
+                }
             });
 
         return Object.values(groups)
@@ -123,19 +142,41 @@ export default function SalesHistoryPage() {
 
                 if (!date) return matchesSearch && matchesPayment;
 
-                const saleDate = new Date(sale.date);
-                return matchesSearch && matchesPayment &&
-                    saleDate.getDate() === date.getDate() &&
-                    saleDate.getMonth() === date.getMonth() &&
-                    saleDate.getFullYear() === date.getFullYear();
+                const filterDateStr = format(date, 'yyyy-MM-dd');
+                const matchesDate = sale.date === filterDateStr;
+
+                return matchesSearch && matchesPayment && matchesDate;
             })
-            .sort((a, b) => b.billNumber - a.billNumber);
+            .sort((a, b) => {
+                // Sort by date descending, then bill number descending
+                if (a.date !== b.date) {
+                    return b.date.localeCompare(a.date);
+                }
+                return b.billNumber - a.billNumber;
+            });
     }, [transactions, searchTerm, date, paymentFilter]);
 
     const resetFilters = () => {
         setSearchTerm("");
         setDate(undefined);
         setPaymentFilter("All");
+    };
+
+    const getOldBalance = (customerName: string, targetDate: string, billNumber: number) => {
+        return transactions
+            .filter(t => t.party.toLowerCase() === customerName.toLowerCase())
+            .filter(t => {
+                if (t.date < targetDate) return true;
+                if (t.date === targetDate && (t.billNumber || 0) < billNumber && t.billNumber !== 0) return true;
+                // Payments on the same day with billNumber 0 are considered after or concurrent, 
+                // but for simple history, we order by billNumber.
+                return false;
+            })
+            .reduce((acc, t) => {
+                if (t.type === 'Sale') return acc + t.amount;
+                if (t.type === 'Payment') return acc - (t.debit || t.amount);
+                return acc;
+            }, 0);
     };
 
     const handleViewDetails = (sale: GroupedSale) => {
@@ -145,6 +186,10 @@ export default function SalesHistoryPage() {
 
     const handlePrintThermal = () => {
         if (!selectedSale) return;
+
+        const oldBalance = getOldBalance(selectedSale.party, selectedSale.date, selectedSale.billNumber);
+        const amountPaid = selectedSale.payment.includes('Cash') ? selectedSale.totalAmount : 0; // Simplified for history view
+        const currentBalance = oldBalance + selectedSale.totalAmount - amountPaid;
 
         const totalQty = selectedSale.items.reduce((sum, item) => sum + item.quantity, 0);
         const totalItems = selectedSale.items.length;
@@ -167,8 +212,8 @@ export default function SalesHistoryPage() {
                     paymentType={selectedSale.payment as "Cash" | "Credit"}
                     items={selectedSale.items}
                     totalAmount={selectedSale.totalAmount}
-                    oldBalance={0}
-                    currentBalance={selectedSale.totalAmount}
+                    oldBalance={oldBalance}
+                    currentBalance={currentBalance}
                     totalItems={totalItems}
                     totalQty={totalQty}
                 />
@@ -183,6 +228,13 @@ export default function SalesHistoryPage() {
 
     const handlePrintA5 = () => {
         if (!selectedSale) return;
+
+        const oldBalance = getOldBalance(selectedSale.party, selectedSale.date, selectedSale.billNumber);
+        // For history, we might not have the exact paid amount if it was partial, 
+        // but we can estimate or use the total if it was Cash.
+        const isCash = selectedSale.payment.includes('Cash');
+        const amountPaid = isCash ? selectedSale.totalAmount : 0;
+        const currentBalance = oldBalance + selectedSale.totalAmount - amountPaid;
 
         const printWindow = window.open('', '_blank', 'width=600,height=800');
         if (printWindow) {
@@ -202,9 +254,9 @@ export default function SalesHistoryPage() {
                     paymentType={selectedSale.payment as "Cash" | "Credit"}
                     items={selectedSale.items}
                     totalAmount={selectedSale.totalAmount}
-                    oldBalance={0}
-                    paidAmount={selectedSale.payment === 'Cash' ? selectedSale.totalAmount : 0}
-                    currentBalance={selectedSale.payment === 'Cash' ? 0 : selectedSale.totalAmount}
+                    oldBalance={oldBalance}
+                    paidAmount={amountPaid}
+                    currentBalance={currentBalance}
                 />
             );
 
@@ -217,16 +269,7 @@ export default function SalesHistoryPage() {
 
     return (
         <>
-            <Header title="Sales History">
-                <div className="flex items-center gap-2">
-                    <Link href="/sales">
-                        <Button size="sm" variant="outline" className="gap-1">
-                            <ChevronLeft className="h-4 w-4" />
-                            Back to Sales
-                        </Button>
-                    </Link>
-                </div>
-            </Header>
+            <Header title="Sales History" backHref="/sales" />
             <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6">
                 <div className="flex flex-col md:flex-row gap-4 items-end">
                     <div className="grid w-full md:w-auto items-center gap-1.5">
@@ -331,8 +374,8 @@ export default function SalesHistoryPage() {
                                         </TableRow>
                                     ) : (
                                         groupedSales.map((sale) => (
-                                            <TableRow key={sale.billNumber}>
-                                                <TableCell className="font-mono font-bold">{sale.billNumber}</TableCell>
+                                            <TableRow key={sale.id}>
+                                                <TableCell className="font-mono font-bold">{sale.billNumber === 0 ? '-' : sale.billNumber}</TableCell>
                                                 <TableCell className="text-muted-foreground">
                                                     {format(new Date(sale.date), "dd/MM/yyyy")}
                                                 </TableCell>
@@ -340,11 +383,12 @@ export default function SalesHistoryPage() {
                                                 <TableCell>
                                                     <span className={cn(
                                                         "px-2 py-1 rounded-full text-xs font-semibold whitespace-nowrap",
-                                                        sale.payment === "Cash" ? "bg-green-100 text-green-700" :
-                                                            sale.payment === "Credit" ? "bg-red-100 text-red-700" :
-                                                                "bg-blue-100 text-blue-700"
+                                                        sale.billNumber === 0 ? "bg-amber-100 text-amber-700 border border-amber-200" :
+                                                            sale.payment === "Cash" ? "bg-green-100 text-green-700" :
+                                                                sale.payment === "Credit" ? "bg-red-100 text-red-700" :
+                                                                    "bg-blue-100 text-blue-700"
                                                     )}>
-                                                        {sale.payment === "Cash" ? "Cash Bill" : sale.payment === "Credit" ? "Credit Bill" : sale.payment}
+                                                        {sale.billNumber === 0 ? "Payment Recorded" : (sale.payment === "Cash" ? "Cash Bill" : sale.payment === "Credit" ? "Credit Bill" : sale.payment)}
                                                     </span>
                                                 </TableCell>
                                                 <TableCell className="text-right font-bold text-primary">
@@ -404,22 +448,22 @@ export default function SalesHistoryPage() {
                             </div>
                         </div>
                         <DialogFooter className="gap-2 mt-4">
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" className="gap-2">
-                                        <Printer className="h-4 w-4" />
-                                        Print
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onSelect={() => setTimeout(handlePrintThermal, 100)}>
-                                        Thermal
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onSelect={() => setTimeout(handlePrintA5, 100)}>
-                                        A5 Print
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+                            <Button
+                                variant="outline"
+                                className="gap-2 border-primary/20 hover:bg-primary/5"
+                                onClick={() => setTimeout(handlePrintThermal, 100)}
+                            >
+                                <Printer className="h-4 w-4" />
+                                Thermal Print
+                            </Button>
+                            <Button
+                                variant="outline"
+                                className="gap-2 border-primary/20 hover:bg-primary/5"
+                                onClick={() => setTimeout(handlePrintA5, 100)}
+                            >
+                                <Printer className="h-4 w-4" />
+                                A5 Print
+                            </Button>
                             <Button onClick={() => setIsDetailsOpen(false)}>Close</Button>
                         </DialogFooter>
                     </DialogContent>

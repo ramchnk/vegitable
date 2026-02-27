@@ -4,7 +4,7 @@
 import { useState, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { format } from 'date-fns';
+import { format, startOfToday, endOfToday, startOfWeek, endOfWeek, subWeeks, startOfMonth, endOfMonth, subMonths, startOfYear, endOfYear, subYears } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import Header from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { useTransactions } from '@/context/transaction-provider';
 import { formatCurrency, cn, downloadCsv } from '@/lib/utils';
-import { ArrowLeft, Calendar as CalendarIcon, Download, Printer, MessageCircle, ShoppingCart, TrendingUp, TrendingDown, Eye } from 'lucide-react';
+import { Calendar as CalendarIcon, Download, Printer, MessageCircle, ShoppingCart, TrendingUp, TrendingDown, Eye, User, MapPin, Wallet } from 'lucide-react';
 import {
     Dialog,
     DialogContent,
@@ -23,6 +23,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/context/language-context';
 
 export default function SupplierLedgerPage() {
     const params = useParams();
@@ -30,8 +31,11 @@ export default function SupplierLedgerPage() {
 
     const { suppliers, transactions, supplierPayments } = useTransactions();
     const { toast } = useToast();
+    const { t } = useLanguage();
 
     const [date, setDate] = useState<DateRange | undefined>();
+    const [tempDate, setTempDate] = useState<DateRange | undefined>();
+    const [isPopoverOpen, setIsPopoverOpen] = useState(false);
     const [selectedTransactions, setSelectedTransactions] = useState<any[]>([]);
     const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
 
@@ -148,7 +152,7 @@ export default function SupplierLedgerPage() {
                 <Header title="Supplier Not Found" />
                 <main className="flex flex-1 flex-col items-center justify-center p-4">
                     <p>The requested supplier could not be found.</p>
-                    <Link href="/purchase/suppliers">
+                    <Link href="/supplier">
                         <Button variant="outline" className="mt-4">Back to Suppliers</Button>
                     </Link>
                 </main>
@@ -161,7 +165,7 @@ export default function SupplierLedgerPage() {
             Date: format(new Date(t.date), "dd/MM/yyyy"),
             'Opening Balance': formatCurrency(t.opening),
             'Purchases': formatCurrency(t.amount),
-            'Credit Amount': `${formatCurrency(t.credit)}${t.paymentMethods ? ` (${t.paymentMethods})` : ''}`,
+            'Paid Amount': `${formatCurrency(t.credit)}${t.paymentMethods ? ` (${t.paymentMethods})` : ''}`,
             'Closing Balance': formatCurrency(t.closing),
         }));
 
@@ -169,7 +173,7 @@ export default function SupplierLedgerPage() {
             Date: 'Summary',
             'Opening Balance': formatCurrency(openingBalance),
             'Purchases': formatCurrency(totalPurchases),
-            'Credit Amount': formatCurrency(totalCredit),
+            'Paid Amount': formatCurrency(totalCredit),
             'Closing Balance': formatCurrency(closingBalance)
         }
 
@@ -209,61 +213,133 @@ export default function SupplierLedgerPage() {
 
     return (
         <>
-            <Header title="Payment Dues" />
-            <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6">
-                <Card>
-                    <CardHeader>
-                        <div className="flex justify-between items-center">
-                            <CardTitle className="text-primary">{supplier.name}</CardTitle>
-                            <Link href="/purchase/suppliers">
-                                <Button className="bg-blue-600 hover:bg-blue-700 text-white border-none shadow-md">
-                                    <ArrowLeft className="mr-2 h-4 w-4" /> Back to Supplier
-                                </Button>
-                            </Link>
+            <Header title="Payment Dues" backHref="/supplier" />
+            <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6 print:p-0">
+                <div className="hidden print:block mb-8 border-b-2 border-black pb-4 text-left">
+                    <h1 className="text-3xl font-black uppercase tracking-tighter">Purchase Account Statement</h1>
+                    <p className="text-sm font-bold text-slate-800">OM Saravana Vegetables</p>
+                    {date?.from && (
+                        <p className="text-xs mt-1">Period: {format(date.from, "dd/MM/yyyy")} to {date.to ? format(date.to, "dd/MM/yyyy") : 'Today'}</p>
+                    )}
+                </div>
+                <Card className="print:border-none print:shadow-none">
+                    <CardHeader className="pb-4 border-b bg-slate-50/50 print:bg-white print:pb-6">
+                        <div className="flex flex-col md:flex-row justify-between items-end gap-4 print:items-start print:justify-start">
+                            <div className="flex flex-col gap-3 print:gap-1">
+                                <div className="flex items-center gap-3 print:gap-0">
+                                    <div className="p-2 bg-primary/10 rounded-lg no-print">
+                                        <User className="h-5 w-5 text-primary" />
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground print:text-black print:text-[8px]">Supplier Name</span>
+                                        <h2 className="text-xl font-black text-[#064e3b] print:text-black print:text-2xl">{supplier.name}</h2>
+                                    </div>
+                                </div>
+                                {supplier.address && (
+                                    <div className="flex items-center gap-3 ml-1 print:ml-0 print:gap-0">
+                                        <div className="p-2 bg-indigo-50 rounded-lg no-print">
+                                            <MapPin className="h-4 w-4 text-indigo-600" />
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground print:text-black print:text-[8px]">Address</span>
+                                            <p className="text-sm font-semibold text-slate-700 print:text-black">{supplier.address}</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex flex-col md:flex-row gap-4 items-end mb-1 no-print">
+                                <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            id="date"
+                                            variant={"outline"}
+                                            className={cn(
+                                                "w-full md:w-[300px] justify-start text-left font-normal bg-white",
+                                                !date && "text-muted-foreground"
+                                            )}
+                                        >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {date?.from ? (
+                                                date.to ? (
+                                                    <>
+                                                        {format(date.from, "dd-MM-yyyy")} -{" "}
+                                                        {format(date.to, "dd-MM-yyyy")}
+                                                    </>
+                                                ) : (
+                                                    format(date.from, "dd-MM-yyyy")
+                                                )
+                                            ) : (
+                                                <span>Pick a date range</span>
+                                            )}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0 flex" align="end">
+                                        <div className="flex flex-col border-r bg-muted/10 min-w-[140px] p-2 gap-1 no-print">
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2 py-2">Presets</span>
+                                            {[
+                                                { label: 'Today', getValue: () => ({ from: startOfToday(), to: endOfToday() }) },
+                                                { label: 'This Week', getValue: () => ({ from: startOfWeek(new Date(), { weekStartsOn: 1 }), to: endOfWeek(new Date(), { weekStartsOn: 1 }) }) },
+                                                { label: 'Last Week', getValue: () => ({ from: startOfWeek(subWeeks(new Date(), 1), { weekStartsOn: 1 }), to: endOfWeek(subWeeks(new Date(), 1), { weekStartsOn: 1 }) }) },
+                                                { label: 'This Month', getValue: () => ({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) }) },
+                                                { label: 'Last Month', getValue: () => ({ from: startOfMonth(subMonths(new Date(), 1)), to: endOfMonth(subMonths(new Date(), 1)) }) },
+                                                { label: 'This Year', getValue: () => ({ from: startOfYear(new Date()), to: endOfYear(new Date()) }) },
+                                                { label: 'Last Year', getValue: () => ({ from: startOfYear(subYears(new Date(), 1)), to: endOfYear(subYears(new Date(), 1)) }) },
+                                            ].map((preset) => (
+                                                <Button
+                                                    key={preset.label}
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="justify-start font-bold text-[#064e3b] hover:bg-primary/10 h-8"
+                                                    onClick={() => {
+                                                        const range = preset.getValue();
+                                                        setTempDate(range);
+                                                    }}
+                                                >
+                                                    {preset.label}
+                                                </Button>
+                                            ))}
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <div className="p-3 border-b flex items-center justify-between bg-muted/20">
+                                                <span className="text-sm font-medium">Select Date Range</span>
+                                                <Button
+                                                    size="sm"
+                                                    className="h-8 px-3"
+                                                    disabled={!tempDate?.from || !tempDate?.to}
+                                                    onClick={() => {
+                                                        setDate(tempDate);
+                                                        setIsPopoverOpen(false);
+                                                    }}
+                                                >
+                                                    Apply
+                                                </Button>
+                                            </div>
+                                            <Calendar
+                                                initialFocus
+                                                mode="range"
+                                                defaultMonth={date?.from}
+                                                selected={tempDate}
+                                                onSelect={setTempDate}
+                                                numberOfMonths={2}
+                                            />
+                                        </div>
+                                    </PopoverContent>
+                                </Popover>
+                                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground min-w-[100px]">Filter</Button>
+                                <Link href={`/purchase/payments?supplierId=${supplierId}`}>
+                                    <Button className="bg-[#4f46e5] hover:bg-[#4338ca] text-white shadow-md font-bold border-none">
+                                        <Wallet className="h-4 w-4 mr-2" />
+                                        {t('payments.supplier_payment')}
+                                    </Button>
+                                </Link>
+                            </div>
                         </div>
                     </CardHeader>
-                    <CardContent className="space-y-6">
-                        <div className="flex flex-col md:flex-row gap-4">
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        id="date"
-                                        variant={"outline"}
-                                        className={cn(
-                                            "w-full md:w-[300px] justify-start text-left font-normal",
-                                            !date && "text-muted-foreground"
-                                        )}
-                                    >
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {date?.from ? (
-                                            date.to ? (
-                                                <>
-                                                    {format(date.from, "dd-MM-yyyy")} -{" "}
-                                                    {format(date.to, "dd-MM-yyyy")}
-                                                </>
-                                            ) : (
-                                                format(date.from, "dd-MM-yyyy")
-                                            )
-                                        ) : (
-                                            <span>Pick a date range</span>
-                                        )}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                    <Calendar
-                                        initialFocus
-                                        mode="range"
-                                        defaultMonth={date?.from}
-                                        selected={date}
-                                        onSelect={setDate}
-                                        numberOfMonths={2}
-                                    />
-                                </PopoverContent>
-                            </Popover>
-                            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">Filter</Button>
-                        </div>
+                    <CardContent className="space-y-6 pt-6 print:pt-4">
 
-                        <Card className="relative overflow-hidden border-none shadow-xl bg-white/20 backdrop-blur-md">
+
+                        <Card className="relative overflow-hidden border-none shadow-xl bg-white/20 backdrop-blur-md print:bg-white print:border print:border-black print:shadow-none print:backdrop-blur-none">
                             {/* Fluid Art Background Decoration */}
                             <div className="absolute inset-0 z-0 opacity-30 select-none pointer-events-none"
                                 style={{
@@ -313,12 +389,20 @@ export default function SupplierLedgerPage() {
                         <div className="rounded-md border">
                             <Table>
                                 <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Date</TableHead>
-                                        <TableHead className="text-right">Opening Balance</TableHead>
-                                        <TableHead className="text-right"><div className="flex items-center justify-end gap-1"><ShoppingCart className="h-4 w-4 text-sky-600" /> Purchases</div></TableHead>
-                                        <TableHead className="text-right"><div className="flex items-center justify-end gap-1"><TrendingDown className="h-4 w-4 text-green-600" /> Credit Amount</div></TableHead>
-                                        <TableHead className="text-right">Closing Balance</TableHead>
+                                    <TableRow className="bg-emerald-50/50">
+                                        <TableHead className="print:text-center">Date</TableHead>
+                                        <TableHead className="text-right print:text-center">Opening Balance</TableHead>
+                                        <TableHead className="text-right print:text-center">
+                                            <div className="flex items-center justify-end gap-1 print:justify-center">
+                                                <ShoppingCart className="h-4 w-4 text-sky-600" /> Purchases
+                                            </div>
+                                        </TableHead>
+                                        <TableHead className="text-right print:text-center">
+                                            <div className="flex items-center justify-end gap-1 print:justify-center">
+                                                <TrendingDown className="h-4 w-4 text-green-600" /> Paid Amount
+                                            </div>
+                                        </TableHead>
+                                        <TableHead className="text-right print:text-center">Closing Balance</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -329,18 +413,18 @@ export default function SupplierLedgerPage() {
                                     ) : (
                                         periodTransactions.map(t => (
                                             <TableRow key={t.id}>
-                                                <TableCell>{format(new Date(t.date), "dd/MM/yyyy")}</TableCell>
-                                                <TableCell className="text-right font-medium text-muted-foreground">{formatCurrency(t.opening)}</TableCell>
-                                                <TableCell className="text-right text-sky-600 font-bold">{formatCurrency(t.amount)}</TableCell>
-                                                <TableCell className="text-right text-green-600 font-bold whitespace-nowrap">
+                                                <TableCell className="print:text-center">{format(new Date(t.date), "dd/MM/yyyy")}</TableCell>
+                                                <TableCell className="text-right font-medium text-muted-foreground print:text-center">{formatCurrency(t.opening)}</TableCell>
+                                                <TableCell className="text-right text-sky-600 font-bold print:text-center">{formatCurrency(t.amount)}</TableCell>
+                                                <TableCell className="text-right text-green-600 font-bold whitespace-nowrap print:text-center">
                                                     {t.credit > 0 ? (
-                                                        <div className="flex flex-col items-end gap-1">
-                                                            <div className="flex items-center gap-2">
+                                                        <div className="flex flex-col items-end gap-1 print:items-center">
+                                                            <div className="flex items-center gap-2 print:justify-center">
                                                                 <span>{formatCurrency(t.credit)}</span>
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="icon"
-                                                                    className="h-6 w-6 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                                                    className="h-6 w-6 text-green-600 hover:text-green-700 hover:bg-green-50 no-print"
                                                                     onClick={() => {
                                                                         setSelectedTransactions(t.transactions);
                                                                         setIsHistoryDialogOpen(true);
@@ -353,7 +437,7 @@ export default function SupplierLedgerPage() {
                                                         </div>
                                                     ) : '-'}
                                                 </TableCell>
-                                                <TableCell className="text-right font-bold text-slate-900">{formatCurrency(t.closing)}</TableCell>
+                                                <TableCell className="text-right font-bold text-slate-900 print:text-center">{formatCurrency(t.closing)}</TableCell>
                                             </TableRow>
                                         ))
                                     )}
@@ -384,10 +468,14 @@ export default function SupplierLedgerPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {selectedTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((tx) => (
+                                {selectedTransactions.sort((a, b) => {
+                                    const timeA = new Date(a.createdAt || a.date).getTime();
+                                    const timeB = new Date(b.createdAt || b.date).getTime();
+                                    return timeB - timeA;
+                                }).map((tx) => (
                                     <TableRow key={tx.id}>
                                         <TableCell className="text-xs">
-                                            {format(new Date(tx.date), "dd/MM/yyyy HH:mm")}
+                                            {format(new Date(tx.createdAt || tx.date), "dd/MM/yyyy HH:mm")}
                                         </TableCell>
                                         <TableCell>
                                             <span className={cn(

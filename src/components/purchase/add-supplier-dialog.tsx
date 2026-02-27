@@ -25,13 +25,13 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { useState } from "react";
 import { useTransactions } from "@/context/transaction-provider";
-import { User } from "lucide-react";
+import { User, Hash, Phone, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/context/language-context";
 
 const supplierFormSchema = z.object({
+  code: z.string().min(1, "Supplier Code Required"),
   name: z.string().min(1, "Supplier Name Required"),
-  code: z.string().optional(),
   contact: z.string().optional(),
   address: z.string().optional(),
 });
@@ -40,7 +40,7 @@ type SupplierFormValues = z.infer<typeof supplierFormSchema>;
 
 export function AddSupplierDialog({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
-  const { addSupplier } = useTransactions();
+  const { addSupplier, suppliers } = useTransactions();
   const { t } = useLanguage();
 
   const form = useForm<SupplierFormValues>({
@@ -58,12 +58,21 @@ export function AddSupplierDialog({ children }: { children: React.ReactNode }) {
   const { toast } = useToast();
 
   async function onSubmit(data: SupplierFormValues) {
-    console.log("Submitting supplier form", data);
+    const existingSupplier = suppliers.find(s => s.code === (data.code || ""));
+    if (existingSupplier) {
+      toast({
+        title: "Duplicate Supplier Code",
+        description: `Supplier code '${data.code}' is already assigned to ${existingSupplier.name}.`,
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
       await addSupplier({
-        name: data.name,
         code: data.code || "",
+        name: data.name,
         contact: data.contact || "",
         address: data.address || ""
       });
@@ -95,7 +104,10 @@ export function AddSupplierDialog({ children }: { children: React.ReactNode }) {
               name="code"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t('suppliers.code_label')}</FormLabel>
+                  <FormLabel className="font-bold flex items-center gap-2">
+                    <Hash className="h-4 w-4" />
+                    {t('suppliers.code_label')}
+                  </FormLabel>
                   <FormControl>
                     <Input placeholder={t('suppliers.code_label')} {...field} />
                   </FormControl>
@@ -108,7 +120,7 @@ export function AddSupplierDialog({ children }: { children: React.ReactNode }) {
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="flex items-center gap-2">
+                  <FormLabel className="font-bold flex items-center gap-2">
                     <User className="h-4 w-4" />
                     {t('suppliers.name_label')}
                   </FormLabel>
@@ -124,7 +136,10 @@ export function AddSupplierDialog({ children }: { children: React.ReactNode }) {
               name="contact"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t('suppliers.phone_label')}</FormLabel>
+                  <FormLabel className="font-bold flex items-center gap-2">
+                    <Phone className="h-4 w-4" />
+                    {t('suppliers.phone_label')}
+                  </FormLabel>
                   <FormControl>
                     <Input placeholder={t('suppliers.phone_label')} {...field} />
                   </FormControl>
@@ -137,7 +152,10 @@ export function AddSupplierDialog({ children }: { children: React.ReactNode }) {
               name="address"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t('suppliers.address_label')}</FormLabel>
+                  <FormLabel className="font-bold flex items-center gap-2">
+                    <MapPin className="h-4 w-4" />
+                    {t('suppliers.address_label')}
+                  </FormLabel>
                   <FormControl>
                     <Input placeholder={t('suppliers.address_label')} {...field} />
                   </FormControl>

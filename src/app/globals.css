@@ -109,35 +109,70 @@
 
 @media print {
 
-  /* Hide sidebar, header, and buttons */
+  /* Reset background colors for better printing */
+  * {
+    background-color: transparent !important;
+    background-image: none !important;
+    color: black !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  /* Specific containers to hide */
   aside,
   header,
   nav,
   button,
-  .no-print {
+  .no-print,
+  [role="button"],
+  .animate-pulse {
     display: none !important;
   }
 
-  /* Ensure the main content takes full width and remove padding */
-  main {
+  /* Force display of the main content area */
+  main,
+  .print-visible {
+    display: block !important;
     padding: 0 !important;
     margin: 0 !important;
     width: 100% !important;
+    overflow: visible !important;
   }
 
-  /* Reset background colors for better printing */
-  .bg-muted\/50 {
-    background-color: transparent !important;
-    border: 1px solid #e2e8f0 !important;
+  /* Reset layout constraints */
+  body,
+  .min-h-svh,
+  .h-svh {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
   }
 
-  /* Ensure text is black for clarity */
-  * {
-    color: black !important;
+  /* Ensure cards and tables are clear */
+  .border,
+  .border-b,
+  .border-t,
+  .border-l,
+  .border-r {
+    border-color: #000 !important;
   }
 
-  /* Force page breaks if needed */
-  .page-break {
-    page-break-before: always;
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  th,
+  td {
+    border: 1px solid #000 !important;
+    padding: 8px !important;
+    text-align: left !important;
+  }
+
+  /* Show a specific print title if it exists */
+  .print-only {
+    display: block !important;
   }
 }

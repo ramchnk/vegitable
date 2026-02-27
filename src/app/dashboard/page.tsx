@@ -23,6 +23,7 @@ import {
   Users,
   Languages,
   Download,
+  CreditCard,
 } from 'lucide-react';
 import Header from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
@@ -31,7 +32,7 @@ import { useTransactions } from '@/context/transaction-provider';
 import { useLanguage } from '@/context/language-context';
 import { Language } from '@/lib/translations';
 import { useState, useMemo } from 'react';
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, subYears } from 'date-fns';
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, subYears, subWeeks, subMonths } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -42,7 +43,10 @@ import { Calendar as CalendarIcon, Clock } from 'lucide-react';
 export default function DashboardPage() {
   const { transactions, customers, products, customerPayments } = useTransactions();
   const { language, setLanguage, t } = useLanguage();
-  const [date, setDate] = useState<DateRange | undefined>();
+  const [date, setDate] = useState<DateRange | undefined>({
+    from: new Date(),
+    to: new Date()
+  });
 
   const totalOutstanding = useMemo(() =>
     customerPayments.reduce((acc: number, curr: any) => acc + curr.dueAmount, 0),
@@ -54,11 +58,22 @@ export default function DashboardPage() {
     let range: DateRange | undefined;
 
     switch (preset) {
+      case 'today':
+        range = { from: today, to: today };
+        break;
       case 'this-week':
         range = { from: startOfWeek(today, { weekStartsOn: 1 }), to: endOfWeek(today, { weekStartsOn: 1 }) };
         break;
+      case 'last-week':
+        const lastWeek = subWeeks(today, 1);
+        range = { from: startOfWeek(lastWeek, { weekStartsOn: 1 }), to: endOfWeek(lastWeek, { weekStartsOn: 1 }) };
+        break;
       case 'this-month':
         range = { from: startOfMonth(today), to: endOfMonth(today) };
+        break;
+      case 'last-month':
+        const lastMonth = subMonths(today, 1);
+        range = { from: startOfMonth(lastMonth), to: endOfMonth(lastMonth) };
         break;
       case 'this-year':
         range = { from: startOfYear(today), to: endOfYear(today) };
@@ -101,6 +116,8 @@ export default function DashboardPage() {
   }, [filteredTransactions]);
 
   const totalRevenue = useMemo(() => filteredTransactions.filter((t: any) => t.type === 'Sale').reduce((acc: number, curr: any) => acc + curr.amount, 0), [filteredTransactions]);
+  const totalCashRevenue = useMemo(() => filteredTransactions.filter((t: any) => t.type === 'Sale' && t.payment === 'Cash').reduce((acc: number, curr: any) => acc + curr.amount, 0), [filteredTransactions]);
+  const totalCreditRevenue = useMemo(() => filteredTransactions.filter((t: any) => t.type === 'Sale' && t.payment === 'Credit').reduce((acc: number, curr: any) => acc + curr.amount, 0), [filteredTransactions]);
   const salesCount = useMemo(() => filteredTransactions.filter((t: any) => t.type === 'Sale').length, [filteredTransactions]);
 
   const handleExport = () => {
@@ -160,8 +177,11 @@ export default function DashboardPage() {
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0 flex flex-row" align="end">
               <div className="flex flex-col border-r p-2 bg-muted/20 gap-1 w-32 no-print">
+                <Button variant="ghost" size="sm" className="justify-start font-normal text-xs h-8" onClick={() => setPreset('today')}>{t('date.today')}</Button>
                 <Button variant="ghost" size="sm" className="justify-start font-normal text-xs h-8" onClick={() => setPreset('this-week')}>{t('date.this_week')}</Button>
+                <Button variant="ghost" size="sm" className="justify-start font-normal text-xs h-8" onClick={() => setPreset('last-week')}>{t('date.last_week')}</Button>
                 <Button variant="ghost" size="sm" className="justify-start font-normal text-xs h-8" onClick={() => setPreset('this-month')}>{t('date.this_month')}</Button>
+                <Button variant="ghost" size="sm" className="justify-start font-normal text-xs h-8" onClick={() => setPreset('last-month')}>{t('date.last_month')}</Button>
                 <Button variant="ghost" size="sm" className="justify-start font-normal text-xs h-8" onClick={() => setPreset('this-year')}>{t('date.this_year')}</Button>
                 <Button variant="ghost" size="sm" className="justify-start font-normal text-xs h-8" onClick={() => setPreset('last-year')}>{t('date.last_year')}</Button>
                 <Button variant="ghost" size="sm" className="justify-start font-normal text-xs h-8 text-destructive hover:text-destructive" onClick={() => setDate(undefined)}>{t('date.clear')}</Button>
@@ -262,6 +282,26 @@ export default function DashboardPage() {
                     {formatCurrency(totalOutstanding)}
                   </div>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Payment Summary - Eggplant Theme (Purple) */}
+          <Card className="relative overflow-hidden bg-[#E9D5FF] border-none shadow-sm hover:shadow-md transition-all duration-300">
+            <div className="absolute -right-6 -top-6 text-[8rem] opacity-20 select-none pointer-events-none rotate-12 mix-blend-multiply text-[#7E22CE]">🍆</div>
+            <div className="absolute left-[-20px] bottom-[-10px] text-6xl opacity-20 select-none pointer-events-none rotate-45 mix-blend-multiply text-[#7E22CE]">🍇</div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+              <CardTitle className="text-sm font-bold text-[#2E5E3A]">Payment Summary</CardTitle>
+              <CreditCard className="h-4 w-4 text-[#2E5E3A]" />
+            </CardHeader>
+            <CardContent className="relative z-10 pt-2 space-y-4">
+              <div className="flex flex-col">
+                <span className="text-[10px] font-bold text-[#4A7A58] uppercase">{t('forms.cash_bill')}</span>
+                <span className="text-2xl font-extrabold text-[#1A4D2E]">{formatCurrency(totalCashRevenue)}</span>
+              </div>
+              <div className="flex flex-col border-t border-[#D8B4FE] pt-2">
+                <span className="text-[10px] font-bold text-[#4A7A58] uppercase">{t('forms.credit_bill')}</span>
+                <span className="text-2xl font-extrabold text-[#1A4D2E]">{formatCurrency(totalCreditRevenue)}</span>
               </div>
             </CardContent>
           </Card>

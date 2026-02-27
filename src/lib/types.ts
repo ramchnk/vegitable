@@ -50,6 +50,7 @@ export type PaymentDetail = {
     id: string;
     partyId: string;
     partyName: string;
+    code?: string;
     totalAmount: number;
     paidAmount: number;
     dueAmount: number;
@@ -69,6 +70,7 @@ export type Transaction = {
     price?: number;
     debit?: number;
     credit?: number;
+    createdAt?: string;
 }
 
 export type DailyAccountSummary = {

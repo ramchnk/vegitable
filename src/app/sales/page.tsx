@@ -204,9 +204,9 @@ export default function SalesPage() {
   }, [watchedCustomerId, totalCost, customers, form]);
 
   const netAmount = totalCost;
-  const balanceAmount = netAmount - (watchedAmountPaid || 0);
+  const balanceAmount = outstanding + netAmount - (watchedAmountPaid || 0);
 
-  function onSubmit(data: SalesFormValues) {
+  async function onSubmit(data: SalesFormValues, printType?: 'thermal' | 'a5') {
     const customer = customers.find(c => c.id === data.customerId);
     if (!customer) {
       toast({ variant: 'destructive', title: 'Error', description: 'Selected customer not found.' });
@@ -230,20 +230,33 @@ export default function SalesPage() {
       };
     });
 
-    addTransaction(
-      newTransactions,
-      { name: customer.name, contact: customer.contact, address: customer.address },
-      finalAmountPaid
-    );
+    try {
+      const preSaveBalance = outstanding;
+      const billNo = await addTransaction(
+        newTransactions,
+        { name: customer.name, contact: customer.contact, address: customer.address },
+        finalAmountPaid
+      );
 
-    toast({ title: 'Success', description: 'Sales entry submitted successfully.' });
-    form.reset({
-      customerId: data.customerId,
-      salesDate: new Date(),
-      items: [],
-      amountPaid: "" as any,
-      paymentType: "Cash",
-    });
+      toast({ title: 'Success', description: 'Sales entry submitted successfully.' });
+
+      // Trigger print if requested
+      if (printType === 'thermal') {
+        handlePrintThermal(typeof billNo === 'number' ? billNo : undefined, preSaveBalance);
+      } else if (printType === 'a5') {
+        handlePrintA5(typeof billNo === 'number' ? billNo : undefined, preSaveBalance);
+      }
+      form.reset({
+        customerId: "",
+        salesDate: new Date(),
+        items: [],
+        amountPaid: "" as any,
+        paymentType: "Cash",
+      });
+    } catch (error) {
+      console.error("Failed to save transaction:", error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to save sales entry.' });
+    }
   }
 
   const clearBill = () => {
@@ -337,7 +350,7 @@ export default function SalesPage() {
     window.open(`https://wa.me/${whatsappNumber}?text=${encodedMessage}`, '_blank');
   }
 
-  const handlePrintThermal = () => {
+  const handlePrintThermal = (forcedBillNo?: number, forcedOldBalance?: number) => {
     const customerId = form.getValues("customerId");
     if (!customerId) {
       toast({ variant: "destructive", title: "Error", description: "Select a customer to print." });
@@ -361,7 +374,9 @@ export default function SalesPage() {
       return;
     }
 
-    const billNo = (transactions.reduce((max, t) => (t.billNumber || 0) > max ? (t.billNumber || 0) : max, 0) + 1);
+    const billNo = forcedBillNo || (transactions
+      .filter(t => t.date === format(form.getValues("salesDate"), 'yyyy-MM-dd'))
+      .reduce((max, t) => (t.billNumber || 0) > max ? (t.billNumber || 0) : max, 0) + 1);
     const date = form.getValues("salesDate");
     const paymentType = form.getValues("paymentType");
     const manualAmountPaid = form.getValues("amountPaid") || 0;
@@ -369,7 +384,7 @@ export default function SalesPage() {
     const totalAmount = items.reduce((sum, item) => sum + item.total, 0);
     const totalItems = items.length;
     const totalQty = items.reduce((sum, item) => sum + item.quantity, 0);
-    const oldBalance = outstanding;
+    const oldBalance = forcedOldBalance !== undefined ? forcedOldBalance : outstanding;
     const amountPaid = paymentType === 'Cash' ? totalAmount : manualAmountPaid;
     const currentBalance = oldBalance + totalAmount - amountPaid;
 
@@ -404,7 +419,7 @@ export default function SalesPage() {
     }
   };
 
-  const handlePrintA5 = () => {
+  const handlePrintA5 = (forcedBillNo?: number, forcedOldBalance?: number) => {
     const customerId = form.getValues("customerId");
     if (!customerId) {
       toast({ variant: "destructive", title: "Error", description: "Select a customer to print." });
@@ -428,13 +443,15 @@ export default function SalesPage() {
       return;
     }
 
-    const billNo = (transactions.reduce((max, t) => (t.billNumber || 0) > max ? (t.billNumber || 0) : max, 0) + 1);
+    const billNo = forcedBillNo || (transactions
+      .filter(t => t.date === format(form.getValues("salesDate"), 'yyyy-MM-dd'))
+      .reduce((max, t) => (t.billNumber || 0) > max ? (t.billNumber || 0) : max, 0) + 1);
     const date = form.getValues("salesDate");
     const paymentType = form.getValues("paymentType");
     const manualAmountPaid = form.getValues("amountPaid") || 0;
 
     const totalAmount = items.reduce((sum, item) => sum + item.total, 0);
-    const oldBalance = outstanding;
+    const oldBalance = forcedOldBalance !== undefined ? forcedOldBalance : outstanding;
     const amountPaid = paymentType === 'Cash' ? totalAmount : manualAmountPaid;
     const currentBalance = oldBalance + totalAmount - amountPaid;
 
@@ -478,12 +495,6 @@ export default function SalesPage() {
               {t('nav.customers')}
             </Button>
           </Link>
-          <Link href="/sales/payments">
-            <Button size="sm" variant="outline" className="gap-1 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white border-none shadow-sm transition-all duration-200">
-              <CreditCard className="h-4 w-4" />
-              {t('nav.payments')}
-            </Button>
-          </Link>
           <Link href="/sales/history">
             <Button size="sm" variant="outline" className="gap-1 px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white border-none shadow-sm transition-all duration-200">
               <History className="h-4 w-4" />
@@ -499,291 +510,280 @@ export default function SalesPage() {
 
               {/* Left Column: Bill Info & Item Entry */}
               <div className="lg:col-span-4 space-y-6">
-                {/* Bill Information Card */}
-                <Card className="shadow-sm border-primary/10">
-                  <CardHeader className="pb-3 border-b bg-muted/30">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <CreditCard className="h-5 w-5 text-primary" />
-                      {t('forms.bill_information')}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-5 space-y-4">
-                    <div className="flex justify-between items-center bg-primary/5 p-3 rounded-lg border border-primary/10">
-                      <div>
-                        <Label className="text-xs text-muted-foreground uppercase font-bold">{t('forms.bill_number')}</Label>
-                        <div className="text-xl font-bold text-primary">#{
-                          (() => {
-                            const targetDate = watchedSalesDate ? format(watchedSalesDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
-                            const maxBillNumber = transactions
-                              .filter(t => t.date === targetDate)
-                              .reduce((max, t) => (t.billNumber || 0) > max ? (t.billNumber || 0) : max, 0);
-                            return maxBillNumber + 1;
-                          })()
-                        }</div>
-                      </div>
-                      <FormField
-                        control={form.control}
-                        name="paymentType"
-                        render={({ field }) => (
-                          <FormItem className="space-y-0">
+                {/* Bill Information (Flattened) */}
+                <div className="space-y-4 px-1">
+                  <FormField
+                    control={form.control}
+                    name="salesDate"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel className="font-semibold text-primary">{t('forms.sales_date')}</FormLabel>
+                        <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                          <PopoverTrigger asChild>
                             <FormControl>
-                              <RadioGroup
-                                onValueChange={field.onChange}
-                                defaultValue={field.value}
-                                className="flex flex-col gap-1"
+                              <Button
+                                ref={dateTriggerRef}
+                                variant={"outline"}
+                                className={cn(
+                                  "w-full pl-3 text-left font-normal h-10",
+                                  !field.value && "text-muted-foreground"
+                                )}
                               >
-                                <FormItem className="flex items-center space-x-2 space-y-0">
-                                  <FormControl>
-                                    <RadioGroupItem value="Cash" className="h-4 w-4" />
-                                  </FormControl>
-                                  <FormLabel className="font-semibold text-sm cursor-pointer">{t('forms.cash_bill')}</FormLabel>
-                                </FormItem>
-                                <FormItem className="flex items-center space-x-2 space-y-0">
-                                  <FormControl>
-                                    <RadioGroupItem value="Credit" className="h-4 w-4" />
-                                  </FormControl>
-                                  <FormLabel className="font-semibold text-sm cursor-pointer">{t('forms.credit_bill')}</FormLabel>
-                                </FormItem>
-                              </RadioGroup>
+                                {field.value ? format(field.value, "PPP") : <span>{t('date.pick_date')}</span>}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
                             </FormControl>
-                          </FormItem>
-                        )}
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0 border-none shadow-none bg-transparent" align="start">
+                            <DatePickerCustom
+                              selected={field.value}
+                              onSelect={(date) => {
+                                field.onChange(date);
+                                if (date) setTimeout(() => itemTypeTriggerRef.current?.focus(), 0);
+                              }}
+                              onClose={() => setIsCalendarOpen(false)}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="flex justify-between items-center bg-primary/5 p-3 rounded-lg border border-primary/10">
+                    <div>
+                      <Label className="text-xs text-muted-foreground uppercase font-bold">{t('forms.bill_number')}</Label>
+                      <div className="text-xl font-bold text-primary">#{
+                        (() => {
+                          const targetDate = watchedSalesDate ? format(watchedSalesDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
+                          const maxBillNumber = transactions
+                            .filter(t => t.date === targetDate)
+                            .reduce((max, t) => (t.billNumber || 0) > max ? (t.billNumber || 0) : max, 0);
+                          return maxBillNumber + 1;
+                        })()
+                      }</div>
+                    </div>
+                    <FormField
+                      control={form.control}
+                      name="paymentType"
+                      render={({ field }) => (
+                        <FormItem className="space-y-0">
+                          <FormControl>
+                            <RadioGroup
+                              onValueChange={field.onChange}
+                              defaultValue={field.value}
+                              className="flex flex-col gap-1"
+                            >
+                              <FormItem className="flex items-center space-x-2 space-y-0">
+                                <FormControl>
+                                  <RadioGroupItem value="Cash" className="h-4 w-4" />
+                                </FormControl>
+                                <FormLabel className="font-semibold text-sm cursor-pointer">{t('forms.cash_bill')}</FormLabel>
+                              </FormItem>
+                              <FormItem className="flex items-center space-x-2 space-y-0">
+                                <FormControl>
+                                  <RadioGroupItem value="Credit" className="h-4 w-4" />
+                                </FormControl>
+                                <FormLabel className="font-semibold text-sm cursor-pointer">{t('forms.credit_bill')}</FormLabel>
+                              </FormItem>
+                            </RadioGroup>
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="customerId"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel className="font-semibold text-primary">{t('forms.customer')}</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                ref={customerTriggerRef}
+                                variant="outline"
+                                role="combobox"
+                                className="w-full justify-between h-10 !text-[#064e3b] !font-bold"
+                              >
+                                {field.value
+                                  ? customers.find((c) => c.id === field.value)?.name
+                                    ? `${customers.find((c) => c.id === field.value)?.code || ''} - ${customers.find((c) => c.id === field.value)?.name}`
+                                    : t('forms.select_customer')
+                                  : t('forms.select_customer')}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                            <Command>
+                              <CommandInput placeholder={t('forms.search_customer')} />
+                              <CommandList>
+                                <CommandEmpty>{t('forms.no_customer_found')}</CommandEmpty>
+                                <CommandGroup>
+                                  {customers.map((customer) => (
+                                    <CommandItem
+                                      value={`${customer.code || ''} ${customer.name}`}
+                                      key={customer.id}
+                                      onSelect={() => {
+                                        form.setValue("customerId", customer.id);
+                                        itemTypeTriggerRef.current?.focus();
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          customer.id === field.value
+                                            ? "opacity-100"
+                                            : "opacity-0"
+                                        )}
+                                      />
+                                      <span className="flex items-center gap-2 text-base py-1 !text-[#064e3b] !font-bold">
+                                        {customer.code && (
+                                          <span className="px-1.5 py-0.5 rounded bg-green-100 font-mono text-xs font-bold !text-[#064e3b]">
+                                            {customer.code}
+                                          </span>
+                                        )}
+                                        <span className="!font-bold !text-[#064e3b]">{customer.name}</span>
+                                      </span>
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {/* Add Items (Flattened) */}
+                <div className="space-y-4 px-1">
+                  <div className="flex items-center gap-2 pb-2 border-b border-primary/10">
+                    <Plus className="h-5 w-5 text-primary" />
+                    <h3 className="text-lg font-semibold tracking-tight">{t('forms.add_items')}</h3>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="font-semibold text-primary">{t('forms.item_type')}</Label>
+                    <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          ref={itemTypeTriggerRef}
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={openCombobox}
+                          className="w-full justify-between h-10 !text-[#064e3b] !font-bold"
+                        >
+                          {newItemId
+                            ? products.find((p) => p.id === newItemId)?.name
+                              ? `${products.find((p) => p.id === newItemId)?.itemCode} - ${products.find((p) => p.id === newItemId)?.name}`
+                              : t('forms.select_item')
+                            : t('forms.select_item')}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder={t('forms.search_item')} />
+                          <CommandList>
+                            <CommandEmpty>{t('forms.no_item_found')}</CommandEmpty>
+                            <CommandGroup>
+                              {products.map((product) => (
+                                <CommandItem
+                                  key={product.id}
+                                  value={`${product.itemCode} - ${product.name}`}
+                                  onSelect={() => {
+                                    handleItemSelect(product.id)
+                                    setOpenCombobox(false)
+                                    setTimeout(() => weightRef.current?.focus(), 0);
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      newItemId === product.id ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  <span className="flex items-center gap-2 text-base py-1 !text-[#064e3b] !font-bold">
+                                    {product.itemCode && (
+                                      <span className="px-1.5 py-0.5 rounded bg-green-100 font-mono text-xs font-bold !text-[#064e3b]">
+                                        {product.itemCode}
+                                      </span>
+                                    )}
+                                    <span className="!font-bold !text-[#064e3b]">{product.name}</span>
+                                  </span>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label className="font-semibold text-primary">{t('forms.weight_kg')}</Label>
+                      <Input
+                        ref={weightRef}
+                        placeholder="0.00"
+                        value={newItemQuantity}
+                        onChange={e => setNewItemQuantity(e.target.value)}
+                        type="number"
+                        className="h-10"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            priceRef.current?.focus();
+                          }
+                        }}
                       />
                     </div>
-
-                    <FormField
-                      control={form.control}
-                      name="customerId"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-col">
-                          <FormLabel className="font-semibold text-primary">{t('forms.customer')}</FormLabel>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <FormControl>
-                                <Button
-                                  ref={customerTriggerRef}
-                                  variant="outline"
-                                  role="combobox"
-                                  className="w-full justify-between h-10 !text-[#064e3b] !font-bold"
-                                >
-                                  {field.value
-                                    ? customers.find((c) => c.id === field.value)?.name
-                                      ? `${customers.find((c) => c.id === field.value)?.code || ''} - ${customers.find((c) => c.id === field.value)?.name}`
-                                      : t('forms.select_customer')
-                                    : t('forms.select_customer')}
-                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                </Button>
-                              </FormControl>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                              <Command>
-                                <CommandInput placeholder={t('forms.search_customer')} />
-                                <CommandList>
-                                  <CommandEmpty>{t('forms.no_customer_found')}</CommandEmpty>
-                                  <CommandGroup>
-                                    {customers.map((customer) => (
-                                      <CommandItem
-                                        value={`${customer.code || ''} ${customer.name}`}
-                                        key={customer.id}
-                                        onSelect={() => {
-                                          form.setValue("customerId", customer.id);
-                                          itemTypeTriggerRef.current?.focus();
-                                        }}
-                                      >
-                                        <Check
-                                          className={cn(
-                                            "mr-2 h-4 w-4",
-                                            customer.id === field.value
-                                              ? "opacity-100"
-                                              : "opacity-0"
-                                          )}
-                                        />
-                                        <span className="flex items-center gap-2 text-base py-1 !text-[#064e3b] !font-bold">
-                                          {customer.code && (
-                                            <span className="px-1.5 py-0.5 rounded bg-green-100 font-mono text-xs font-bold !text-[#064e3b]">
-                                              {customer.code}
-                                            </span>
-                                          )}
-                                          <span className="!font-bold !text-[#064e3b]">{customer.name}</span>
-                                        </span>
-                                      </CommandItem>
-                                    ))}
-                                  </CommandGroup>
-                                </CommandList>
-                              </Command>
-                            </PopoverContent>
-                          </Popover>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="salesDate"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-col">
-                          <FormLabel className="font-semibold text-primary">{t('forms.sales_date')}</FormLabel>
-                          <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-                            <PopoverTrigger asChild>
-                              <FormControl>
-                                <Button
-                                  ref={dateTriggerRef}
-                                  variant={"outline"}
-                                  className={cn(
-                                    "w-full pl-3 text-left font-normal h-10",
-                                    !field.value && "text-muted-foreground"
-                                  )}
-                                >
-                                  {field.value ? format(field.value, "PPP") : <span>{t('date.pick_date')}</span>}
-                                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                </Button>
-                              </FormControl>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0 border-none shadow-none bg-transparent" align="start">
-                              <DatePickerCustom
-                                selected={field.value}
-                                onSelect={(date) => {
-                                  field.onChange(date);
-                                  if (date) setTimeout(() => itemTypeTriggerRef.current?.focus(), 0);
-                                }}
-                                onClose={() => setIsCalendarOpen(false)}
-                              />
-                            </PopoverContent>
-                          </Popover>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </CardContent>
-                </Card>
-
-                {/* Add Items Card */}
-                <Card className="shadow-sm border-primary/10">
-                  <CardHeader className="pb-3 border-b bg-muted/30">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Plus className="h-5 w-5 text-primary" />
-                      {t('forms.add_items')}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-5 space-y-4">
                     <div className="space-y-2">
-                      <Label className="font-semibold text-primary">{t('forms.item_type')}</Label>
-                      <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
-                        <PopoverTrigger asChild>
-                          <Button
-                            ref={itemTypeTriggerRef}
-                            variant="outline"
-                            role="combobox"
-                            aria-expanded={openCombobox}
-                            className="w-full justify-between h-10 !text-[#064e3b] !font-bold"
-                          >
-                            {newItemId
-                              ? products.find((p) => p.id === newItemId)?.name
-                                ? `${products.find((p) => p.id === newItemId)?.itemCode} - ${products.find((p) => p.id === newItemId)?.name}`
-                                : t('forms.select_item')
-                              : t('forms.select_item')}
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                          <Command>
-                            <CommandInput placeholder={t('forms.search_item')} />
-                            <CommandList>
-                              <CommandEmpty>{t('forms.no_item_found')}</CommandEmpty>
-                              <CommandGroup>
-                                {products.map((product) => (
-                                  <CommandItem
-                                    key={product.id}
-                                    value={`${product.itemCode} - ${product.name}`}
-                                    onSelect={() => {
-                                      handleItemSelect(product.id)
-                                      setOpenCombobox(false)
-                                      setTimeout(() => weightRef.current?.focus(), 0);
-                                    }}
-                                  >
-                                    <Check
-                                      className={cn(
-                                        "mr-2 h-4 w-4",
-                                        newItemId === product.id ? "opacity-100" : "opacity-0"
-                                      )}
-                                    />
-                                    <span className="flex items-center gap-2 text-base py-1 !text-[#064e3b] !font-bold">
-                                      {product.itemCode && (
-                                        <span className="px-1.5 py-0.5 rounded bg-green-100 font-mono text-xs font-bold !text-[#064e3b]">
-                                          {product.itemCode}
-                                        </span>
-                                      )}
-                                      <span className="!font-bold !text-[#064e3b]">{product.name}</span>
-                                    </span>
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
+                      <Label className="font-semibold text-primary">{t('forms.price')}</Label>
+                      <Input
+                        ref={priceRef}
+                        placeholder="0.00"
+                        value={newItemPrice}
+                        onChange={e => setNewItemPrice(e.target.value)}
+                        type="number"
+                        className="h-10"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleAddItem();
+                            setTimeout(() => itemTypeTriggerRef.current?.focus(), 0);
+                          }
+                        }}
+                      />
                     </div>
+                  </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-2">
-                        <Label className="font-semibold text-primary">{t('forms.weight_kg')}</Label>
-                        <Input
-                          ref={weightRef}
-                          placeholder="0.00"
-                          value={newItemQuantity}
-                          onChange={e => setNewItemQuantity(e.target.value)}
-                          type="number"
-                          className="h-10"
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              priceRef.current?.focus();
-                            }
-                          }}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="font-semibold text-primary">{t('forms.price')}</Label>
-                        <Input
-                          ref={priceRef}
-                          placeholder="0.00"
-                          value={newItemPrice}
-                          onChange={e => setNewItemPrice(e.target.value)}
-                          type="number"
-                          className="h-10"
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              handleAddItem();
-                              setTimeout(() => itemTypeTriggerRef.current?.focus(), 0);
-                            }
-                          }}
-                        />
-                      </div>
-                    </div>
-
-                    <Button type="button" onClick={handleAddItem} className="w-full h-10 mt-2 gap-2">
-                      <Plus className="h-4 w-4" />
-                      {t('forms.add_item')}
-                    </Button>
-                  </CardContent>
-                </Card>
+                  <Button type="button" onClick={handleAddItem} className="w-full h-10 mt-2 gap-2">
+                    <Plus className="h-4 w-4" />
+                    {t('forms.add_item')}
+                  </Button>
+                </div>
               </div>
 
               {/* Right Column: Items List & Total */}
               <div className="lg:col-span-8 space-y-6">
-                <Card className="flex flex-col h-full shadow-sm border-primary/10 min-h-[500px]">
+                <Card className="flex flex-col h-full shadow-sm border-primary/10">
                   <CardHeader className="pb-3 border-b bg-muted/30 flex flex-row items-center justify-between">
                     <div>
                       <CardTitle className="text-lg">{t('forms.items_list')}</CardTitle>
-                      <CardDescription>{t('forms.review_manage_items')}</CardDescription>
+
                     </div>
                     <div className="text-sm font-medium bg-primary/10 text-primary px-3 py-1 rounded-full">
                       {fields.length} {t('forms.items')}
                     </div>
                   </CardHeader>
-                  <CardContent className="flex-1 p-0 overflow-auto">
+                  <CardContent className="flex-1 p-0 overflow-y-auto max-h-[450px]">
                     <Table>
                       <TableHeader className="bg-muted/30 sticky top-0 z-10">
                         <TableRow>
@@ -797,7 +797,7 @@ export default function SalesPage() {
                       <TableBody>
                         {fields.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={5} className="h-40 text-center text-muted-foreground italic">
+                            <TableCell colSpan={5} className="h-24 text-center text-muted-foreground italic">
                               {t('forms.no_items')}
                             </TableCell>
                           </TableRow>
@@ -826,10 +826,6 @@ export default function SalesPage() {
                   <CardFooter className="border-t bg-muted/30 flex flex-col gap-4 pt-6">
                     <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-6 pb-2">
                       <div className="space-y-3">
-                        <div className="flex justify-between items-center text-sm">
-                          <span className="text-muted-foreground font-bold">{t('forms.total_bill')}:</span>
-                          <span className="font-semibold">{formatCurrency(totalCost)}</span>
-                        </div>
                         {(() => {
                           const customer = customers.find(c => c.id === watchedCustomerId);
                           const isWalkIn = customer?.name.toLowerCase() === "walk-in customer";
@@ -841,9 +837,19 @@ export default function SalesPage() {
                             </div>
                           );
                         })()}
-                        <div className="flex justify-between items-center bg-primary/10 p-2 rounded text-lg font-bold text-primary">
-                          <span>{t('forms.grand_total')}:</span>
-                          <span>{formatCurrency(balanceAmount)}</span>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-muted-foreground font-bold">{t('forms.total_bill')}:</span>
+                          <span className="font-semibold">{formatCurrency(totalCost)}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm text-muted-foreground">
+                          <span className="font-bold">{t('forms.paid_amount')}:</span>
+                          <span className="font-semibold">-{formatCurrency(watchedAmountPaid || 0)}</span>
+                        </div>
+                        <div className="border-t border-primary/20 my-2 pt-2">
+                          <div className="flex justify-between items-center bg-primary/10 p-2 rounded text-lg font-bold text-primary">
+                            <span>{t('forms.grand_total')}:</span>
+                            <span>{formatCurrency(balanceAmount)}</span>
+                          </div>
                         </div>
                       </div>
 
@@ -875,32 +881,45 @@ export default function SalesPage() {
                       </div>
                     </div>
 
-                    <div className="w-full flex items-center gap-2 pt-2 border-t">
+                    <div className="w-full flex flex-wrap items-center gap-2 pt-2 border-t">
                       <Button type="button" variant="outline" onClick={clearBill} className="gap-2">
                         <Trash className="h-4 w-4" />
                         {t('actions.clear_bill')}
                       </Button>
                       <div className="flex-1" />
-                      <Button type="submit" size="lg" className="px-8 shadow-md">
+
+                      {/* Save & Print A5 */}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => form.handleSubmit((data) => onSubmit(data, 'a5'))()}
+                        className="gap-2 border-primary/20 hover:bg-primary/5"
+                      >
+                        <Printer className="h-4 w-4" />
+                        Save & Print A5
+                      </Button>
+
+                      {/* Save & Print Thermal */}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => form.handleSubmit((data) => onSubmit(data, 'thermal'))()}
+                        className="gap-2 border-primary/20 hover:bg-primary/5"
+                      >
+                        <Printer className="h-4 w-4" />
+                        Save & Thermal
+                      </Button>
+
+                      {/* Primary Save Bill Button */}
+                      <Button
+                        type="button"
+                        onClick={() => form.handleSubmit((data) => onSubmit(data))()}
+                        size="lg"
+                        className="px-8 shadow-md"
+                      >
                         {t('actions.save_bill')}
                       </Button>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button type="button" variant="outline" size="icon" className="h-11 w-11 border-primary/20 hover:bg-primary/5">
-                            <Printer className="h-5 w-5" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem onSelect={() => setTimeout(handlePrintThermal, 100)} className="gap-2 py-2">
-                            <Printer className="h-4 w-4" />
-                            {t('actions.thermal_receipt')}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => setTimeout(handlePrintA5, 100)} className="gap-2 py-2">
-                            <Printer className="h-4 w-4" />
-                            {t('actions.a5_print_out')}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+
                       <Button type="button" variant="outline" size="icon" onClick={handleWhatsApp} className="h-11 w-11 text-green-600 hover:text-green-700 hover:bg-green-50">
                         <MessageCircle className="h-5 w-5" />
                       </Button>

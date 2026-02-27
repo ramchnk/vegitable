@@ -36,18 +36,18 @@ export function BuyersLedgerDialog({ open, onOpenChange, date }: BuyersLedgerDia
 
   const dailySales = useMemo(() => {
     if (!date) return [];
-    
-    const salesForDate = transactions.filter(t => 
-        t.type === 'Sale' && 
-        format(new Date(t.date), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
+
+    const salesForDate = transactions.filter(t =>
+      t.type === 'Sale' &&
+      format(new Date(t.date), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
     );
-    
+
     const salesByCustomer = salesForDate.reduce((acc, curr) => {
-        if (!acc[curr.party]) {
-            acc[curr.party] = 0;
-        }
-        acc[curr.party] += curr.amount;
-        return acc;
+      if (!acc[curr.party]) {
+        acc[curr.party] = 0;
+      }
+      acc[curr.party] += curr.amount;
+      return acc;
     }, {} as Record<string, number>);
 
     return Object.entries(salesByCustomer).map(([customer, amount]) => ({ customer, amount }));
@@ -55,7 +55,7 @@ export function BuyersLedgerDialog({ open, onOpenChange, date }: BuyersLedgerDia
   }, [date, transactions]);
 
   const totalSales = useMemo(() => {
-      return dailySales.reduce((sum, sale) => sum + sale.amount, 0);
+    return dailySales.reduce((sum, sale) => sum + sale.amount, 0);
   }, [dailySales]);
 
 
@@ -63,41 +63,41 @@ export function BuyersLedgerDialog({ open, onOpenChange, date }: BuyersLedgerDia
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md p-0">
         <DialogHeader className="p-4 bg-primary text-primary-foreground rounded-t-lg">
-          <DialogTitle>Buyers Transaction Details</DialogTitle>
+          <DialogTitle>Customer Transaction Details</DialogTitle>
         </DialogHeader>
         <div className="p-4 space-y-4">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Calendar className="h-4 w-4" />
-                <span>Date: {date ? format(date, 'dd/MM/yyyy') : 'N/A'}</span>
-            </div>
-            <Table>
-                <TableHeader className="bg-accent">
-                    <TableRow>
-                        <TableHead>Customer Name</TableHead>
-                        <TableHead className="text-right">Amount</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {dailySales.length > 0 ? (
-                        dailySales.map((sale) => (
-                            <TableRow key={sale.customer}>
-                                <TableCell>{sale.customer}</TableCell>
-                                <TableCell className="text-right">{formatCurrency(sale.amount)}</TableCell>
-                            </TableRow>
-                        ))
-                    ) : (
-                        <TableRow>
-                            <TableCell colSpan={2} className="text-center">No sales for this date.</TableCell>
-                        </TableRow>
-                    )}
-                </TableBody>
-                <TableFooter>
-                    <TableRow>
-                        <TableCell className="font-bold text-right">Total:</TableCell>
-                        <TableCell className="text-right font-bold">{formatCurrency(totalSales)}</TableCell>
-                    </TableRow>
-                </TableFooter>
-            </Table>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Calendar className="h-4 w-4" />
+            <span>Date: {date ? format(date, 'dd/MM/yyyy') : 'N/A'}</span>
+          </div>
+          <Table>
+            <TableHeader className="bg-accent">
+              <TableRow>
+                <TableHead>Customer Name</TableHead>
+                <TableHead className="text-right">Amount</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {dailySales.length > 0 ? (
+                dailySales.map((sale) => (
+                  <TableRow key={sale.customer}>
+                    <TableCell>{sale.customer}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(sale.amount)}</TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={2} className="text-center">No sales for this date.</TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+            <TableFooter>
+              <TableRow>
+                <TableCell className="font-bold text-right">Total:</TableCell>
+                <TableCell className="text-right font-bold">{formatCurrency(totalSales)}</TableCell>
+              </TableRow>
+            </TableFooter>
+          </Table>
         </div>
         <DialogFooter className="p-4 border-t">
           <DialogClose asChild>

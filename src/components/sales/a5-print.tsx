@@ -114,7 +114,7 @@ export const A5Print = React.forwardRef<HTMLDivElement, A5PrintProps>((props, re
             <div className="border border-black text-sm font-bold">
                 <div className="flex border-b border-black">
                     <div className="w-[65%] text-right pr-2 py-1"></div>
-                    <div className="w-[15%] border-l border-r border-black text-center py-1">GrossTotal</div>
+                    <div className="w-[15%] border-l border-r border-black text-center py-1">Invoice Total</div>
                     <div className="w-[20%] text-right px-1 py-1">{totalAmount.toFixed(2)}</div>
                 </div>
                 <div className="flex border-b border-black">
@@ -128,7 +128,7 @@ export const A5Print = React.forwardRef<HTMLDivElement, A5PrintProps>((props, re
                     <div className="w-[15%] border-r border-black text-center py-1">Cur.Bal.</div>
                     <div className="w-[20%] border-r border-black text-right px-1 py-1">{currentBalance.toFixed(2)}</div>
                     <div className="w-[30%] border-r border-black"></div>
-                    <div className="w-[15%] border-r border-black text-center py-1 text-xs">Total Amount</div>
+                    <div className="w-[15%] border-r border-black text-center py-1 text-xs">Invoice Balance</div>
                     <div className="w-[20%] text-right px-1 py-1">{(totalAmount - paidAmount).toFixed(2)}</div>
                 </div>
             </div>

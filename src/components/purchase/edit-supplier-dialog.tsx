@@ -24,14 +24,16 @@ import { z } from "zod";
 import type { PaymentDetail, Supplier } from "@/lib/types";
 import { useEffect } from "react";
 import { useTransactions } from "@/context/transaction-provider";
-import { Trash } from "lucide-react";
+import { Trash, User, Hash, Phone, MapPin, Wallet } from "lucide-react";
+import { useLanguage } from "@/context/language-context";
+import { useToast } from "@/hooks/use-toast";
 
 const supplierFormSchema = z.object({
+  code: z.string().min(1, "Supplier Code Required"),
   name: z.string().min(1, "Supplier name is required"),
-  code: z.string().optional(),
+  amount: z.coerce.number(),
   contact: z.string().optional(),
   address: z.string().optional(),
-  amount: z.coerce.number(),
 });
 
 type SupplierFormValues = z.infer<typeof supplierFormSchema>;
@@ -41,6 +43,7 @@ interface EditSupplierDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (supplier: Supplier, payment: PaymentDetail) => void;
+  onDelete?: (supplierId: string) => void;
 }
 
 export function EditSupplierDialog({
@@ -48,8 +51,11 @@ export function EditSupplierDialog({
   open,
   onOpenChange,
   onSave,
+  onDelete,
 }: EditSupplierDialogProps) {
   const { suppliers } = useTransactions();
+  const { t } = useLanguage();
+  const { toast } = useToast();
   const currentSupplier = payment ? suppliers.find(s => s.id === payment.partyId) : null;
 
   const form = useForm<SupplierFormValues>({
@@ -81,6 +87,16 @@ export function EditSupplierDialog({
       const supplier = suppliers.find(s => s.id === payment.partyId);
       if (!supplier) return;
 
+      const duplicateCodeSupplier = suppliers.find(s => s.code === data.code && s.id !== supplier.id);
+      if (duplicateCodeSupplier) {
+        toast({
+          title: "Duplicate Supplier Code",
+          description: `Supplier code '${data.code}' is already assigned to ${duplicateCodeSupplier.name}.`,
+          variant: "destructive"
+        });
+        return;
+      }
+
       const updatedSupplier: Supplier = {
         ...supplier,
         name: data.name,
@@ -108,7 +124,7 @@ export function EditSupplierDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Edit Supplier Name</DialogTitle>
+          <DialogTitle>{t('suppliers.edit_supplier_title')}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -117,9 +133,12 @@ export function EditSupplierDialog({
               name="code"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Code</FormLabel>
+                  <FormLabel className="font-bold flex items-center gap-2">
+                    <Hash className="h-4 w-4" />
+                    {t('suppliers.code_label')}
+                  </FormLabel>
                   <FormControl>
-                    <Input placeholder="Supplier Code" {...field} />
+                    <Input placeholder={t('suppliers.code_label')} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -130,7 +149,10 @@ export function EditSupplierDialog({
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Supplier</FormLabel>
+                  <FormLabel className="font-bold flex items-center gap-2">
+                    <User className="h-4 w-4" />
+                    {t('suppliers.name_label')}
+                  </FormLabel>
                   <FormControl>
                     <Input {...field} />
                   </FormControl>
@@ -143,9 +165,12 @@ export function EditSupplierDialog({
               name="contact"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Phone Number</FormLabel>
+                  <FormLabel className="font-bold flex items-center gap-2">
+                    <Phone className="h-4 w-4" />
+                    {t('suppliers.phone_label')}
+                  </FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter phone number" {...field} />
+                    <Input placeholder={t('suppliers.phone_label')} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -156,9 +181,12 @@ export function EditSupplierDialog({
               name="address"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Address</FormLabel>
+                  <FormLabel className="font-bold flex items-center gap-2">
+                    <MapPin className="h-4 w-4" />
+                    {t('suppliers.address_label')}
+                  </FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter address" {...field} />
+                    <Input placeholder={t('suppliers.address_label')} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -169,7 +197,10 @@ export function EditSupplierDialog({
               name="amount"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Amount</FormLabel>
+                  <FormLabel className="font-bold flex items-center gap-2">
+                    <Wallet className="h-4 w-4" />
+                    {t('forms.amount')}
+                  </FormLabel>
                   <FormControl>
                     <Input type="number" step="any" {...field} />
                   </FormControl>
@@ -178,9 +209,21 @@ export function EditSupplierDialog({
               )}
             />
             <DialogFooter className="justify-between pt-4">
-              <Button type="button" variant="destructive" size="icon">
-                <Trash className="h-4 w-4" />
-              </Button>
+              {onDelete && (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="icon"
+                  onClick={() => {
+                    if (payment && window.confirm(`Are you sure you want to delete ${payment.partyName}?`)) {
+                      onDelete(payment.partyId);
+                      onOpenChange(false);
+                    }
+                  }}
+                >
+                  <Trash className="h-4 w-4" />
+                </Button>
+              )}
               <div className="flex gap-2">
                 <Button type="submit" size="icon">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6L9 17L4 12" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
