@@ -2,6 +2,7 @@
 "use client";
 
 import { createContext, useContext, ReactNode, useMemo } from 'react';
+import { format } from 'date-fns';
 import { collection, doc, addDoc, setDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import type { Transaction, PaymentDetail, Supplier, Customer, DailyAccountSummary, Product } from '@/lib/types';
 import { useFirestore, useUser } from '@/firebase';
@@ -41,6 +42,7 @@ interface TransactionContextType {
     updateProduct: (product: Product) => void;
     deleteProduct: (id: string, silent?: boolean) => Promise<void>;
     deleteCustomer: (id: string, silent?: boolean) => Promise<void>;
+    deleteSupplier: (id: string, silent?: boolean) => Promise<void>;
     loading: boolean;
 }
 
@@ -72,9 +74,35 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
     const productsRef = useMemo(() => firestore && user ? collection(firestore, 'products') : null, [firestore, user]);
     const { data: productsData, loading: productsLoading } = useCollection<Product>(productsRef);
 
-    const transactions = transactionsData || [];
-    const supplierPayments = supplierPaymentsData || [];
-    const customerPayments = customerPaymentsData || [];
+    const transactions = useMemo(() => {
+        if (!transactionsData) return [];
+        return [...transactionsData].sort((a, b) => {
+            if (a.date !== b.date) return b.date.localeCompare(a.date);
+            // Within the same day, try sorting by billNumber descending
+            if (a.billNumber !== b.billNumber) return (b.billNumber || 0) - (a.billNumber || 0);
+            // If billNumbers are same (e.g. multiple items in same bill), try createdAt
+            if (a.createdAt && b.createdAt) return b.createdAt.localeCompare(a.createdAt);
+            return 0;
+        });
+    }, [transactionsData]);
+    const supplierPayments = useMemo(() => {
+        if (!supplierPaymentsData) return [];
+        return supplierPaymentsData.map(p => {
+            const supplier = (suppliersData || []).find(s => s.id === p.partyId);
+            return { ...p, code: supplier?.code };
+        });
+    }, [supplierPaymentsData, suppliersData]);
+    const customerPayments = useMemo(() => {
+        if (!customerPaymentsData) return [];
+        return customerPaymentsData.map(p => {
+            const customer = (customersData || []).find(c => c.id === p.partyId);
+            const base = { ...p, code: customer?.code };
+            if (customer?.code === "000") {
+                return { ...base, dueAmount: 0 };
+            }
+            return base;
+        });
+    }, [customerPaymentsData, customersData]);
     const suppliers = suppliersData || [];
     const customers = customersData || [];
     const dailySummaries = dailySummariesData || [];
@@ -195,10 +223,11 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
         newTransactions: Omit<Transaction, 'id'>[],
         partyDetails: { name: string; contact: string; address: string },
         amountPaidOverride?: number
-    ) => {
-        if (!firestore || newTransactions.length === 0) return;
+    ): Promise<number | void> => {
+        if (!firestore || newTransactions.length === 0) return Promise.resolve();
 
         const batch = writeBatch(firestore);
+        const createdAt = new Date().toISOString();
 
         // Calculate next bill number for this specific date
         const targetDate = newTransactions[0].date;
@@ -211,7 +240,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
 
         newTransactions.forEach(t => {
             const transRef = doc(collection(firestore, 'transactions'));
-            batch.set(transRef, { ...t, billNumber: nextBillNumber });
+            batch.set(transRef, { ...t, billNumber: nextBillNumber, createdAt });
         });
 
         const totalAmount = newTransactions.reduce((sum, t) => sum + t.amount, 0);
@@ -233,7 +262,8 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
 
             const paymentRef = doc(firestore, 'customerPayments', customerId);
             const existingPayment = customerPayments.find(p => p.partyId === customerId);
-            const amountPaid = amountPaidOverride !== undefined ? amountPaidOverride : (paymentMethod !== 'Credit' ? totalAmount : 0);
+            const isWalkIn = customer?.code === "000";
+            const amountPaid = isWalkIn ? totalAmount : (amountPaidOverride !== undefined ? amountPaidOverride : (paymentMethod !== 'Credit' ? totalAmount : 0));
 
             if (existingPayment) {
                 const newTotalAmount = existingPayment.totalAmount + totalAmount;
@@ -241,19 +271,19 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
                 batch.update(paymentRef, {
                     totalAmount: newTotalAmount,
                     paidAmount: newPaidAmount,
-                    dueAmount: newTotalAmount - newPaidAmount,
-                    paymentMethod: paymentMethod,
+                    dueAmount: isWalkIn ? 0 : (newTotalAmount - newPaidAmount),
+                    paymentMethod: isWalkIn ? 'Cash' : paymentMethod,
                 });
             } else {
-                const dueAmount = totalAmount - amountPaid;
+                const dueAmount = isWalkIn ? 0 : (totalAmount - amountPaid);
                 batch.set(paymentRef, {
                     id: customerId,
                     partyId: customerId,
                     partyName: partyDetails.name,
                     totalAmount: totalAmount,
-                    paidAmount: amountPaid,
+                    paidAmount: isWalkIn ? totalAmount : amountPaid,
                     dueAmount: dueAmount,
-                    paymentMethod: paymentMethod,
+                    paymentMethod: isWalkIn ? 'Cash' : paymentMethod,
                 });
             }
 
@@ -269,6 +299,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
                     amount: amountPaid,
                     payment: paymentMethod,
                     debit: amountPaid,
+                    createdAt: createdAt
                 });
             }
         } else { // Purchase
@@ -321,13 +352,15 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
                     amount: amountPaid,
                     payment: paymentMethod,
                     credit: amountPaid,
+                    createdAt: createdAt
                 });
             }
         }
 
-        batch.commit().catch(e => {
+        return batch.commit().then(() => nextBillNumber).catch(e => {
             const permissionError = new FirestorePermissionError({ path: 'batch-write', operation: 'write' });
             errorEmitter.emit('permission-error', permissionError);
+            throw e;
         });
     };
 
@@ -412,6 +445,25 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
         }
     }
 
+    const deleteSupplier = async (supplierId: string, silent: boolean = false) => {
+        if (!firestore) return;
+        const supplierRef = doc(firestore, 'suppliers', supplierId);
+        const paymentRef = doc(firestore, 'supplierPayments', supplierId);
+
+        try {
+            await deleteDoc(supplierRef);
+            await deleteDoc(paymentRef);
+            if (!silent) {
+                toast({ title: 'Success', description: 'Supplier deleted successfully.' });
+            }
+        } catch (e: any) {
+            console.error("Error deleting supplier:", e);
+            const permissionError = new FirestorePermissionError({ path: supplierRef.path, operation: 'delete' });
+            errorEmitter.emit('permission-error', permissionError);
+            throw e;
+        }
+    }
+
     const saveDailySummary = (summary: DailyAccountSummary) => {
         if (!firestore) return;
         const summaryRef = doc(firestore, "dailySummaries", summary.date);
@@ -431,13 +483,14 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
         if (!firestore || !user) return;
 
         const batch = writeBatch(firestore);
-        const timestamp = new Date().toISOString();
+        const currentISO = new Date().toISOString();
+        const dateStr = format(new Date(), 'yyyy-MM-dd');
 
         // 1. Create Transaction Record
         const transRef = doc(collection(firestore, 'transactions'));
         const transaction: Transaction = {
             id: transRef.id,
-            date: timestamp,
+            date: dateStr,
             party: partyName,
             type: "Payment",
             item: "Payment Received/Given",
@@ -445,6 +498,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
             payment: paymentMethod,
             credit: partyType === "Supplier" ? amount : 0, // Supplier payment is credit (reducing our debt)
             debit: partyType === "Customer" ? amount : 0,  // Customer payment is debit (reducing their debt)
+            createdAt: currentISO
         };
         batch.set(transRef, transaction);
 
@@ -487,6 +541,11 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
             throw error;
         }
 
+        if (products.some(p => p.itemCode.toLowerCase() === newProductData.itemCode.toLowerCase())) {
+            toast({ title: 'Error', description: 'Product with this code already exists.', variant: 'destructive' });
+            return;
+        }
+
         const newProductRef = doc(collection(firestore, 'products'));
         const newProductId = newProductRef.id;
         const productWithId = { ...newProductData, id: newProductId };
@@ -502,13 +561,24 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
         }
     }
 
-    const updateProduct = (updatedProduct: Product) => {
+    const updateProduct = async (updatedProduct: Product) => {
         if (!firestore) return;
+
+        if (products.some(p => p.itemCode.toLowerCase() === updatedProduct.itemCode.toLowerCase() && p.id !== updatedProduct.id)) {
+            toast({ title: 'Error', description: 'Product with this code already exists.', variant: 'destructive' });
+            return;
+        }
+
         const productRef = doc(firestore, 'products', updatedProduct.id);
-        updateDoc(productRef, updatedProduct as any).catch(e => {
+        try {
+            await updateDoc(productRef, updatedProduct as any);
+            toast({ title: 'Success', description: 'Product updated successfully.' });
+        } catch (e) {
+            console.error("Error updating product:", e);
+            toast({ title: 'Error', description: 'Failed to update product.', variant: 'destructive' });
             const permissionError = new FirestorePermissionError({ path: productRef.path, operation: 'update', requestResourceData: updatedProduct });
             errorEmitter.emit('permission-error', permissionError);
-        });
+        }
     }
 
     const deleteProduct = async (productId: string, silent: boolean = false) => {
@@ -527,7 +597,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
         }
     }
 
-    const value: TransactionContextType = { transactions, addTransaction, supplierPayments, customerPayments, updateSupplierPayment, updateCustomerPayment, suppliers, addSupplier, updateSupplier, customers, addCustomer, updateCustomer, deleteCustomer, dailySummaries, saveDailySummary, addPayment, products, addProduct, updateProduct, deleteProduct, loading };
+    const value: TransactionContextType = { transactions, addTransaction, supplierPayments, customerPayments, updateSupplierPayment, updateCustomerPayment, suppliers, addSupplier, updateSupplier, customers, addCustomer, updateCustomer, deleteCustomer, deleteSupplier, dailySummaries, saveDailySummary, addPayment, products, addProduct, updateProduct, deleteProduct, loading };
 
     return (
         <TransactionContext.Provider value={value}>

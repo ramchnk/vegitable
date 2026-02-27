@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { format, addMonths, setMonth, setYear } from "date-fns"
+import { format, addMonths, setMonth, setYear, startOfDay, isSameDay } from "date-fns"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { DayPicker, DateRange } from "react-day-picker"
 import { cn } from "@/lib/utils"
@@ -28,7 +28,33 @@ export function DatePickerCustom({ selected, onSelect, onRangeSelect, onClose, m
             ? (selected as DateRange)?.from || new Date()
             : (selected as Date) || new Date()
     );
-    const [tempSelected, setTempSelected] = React.useState<Date | DateRange | undefined>(selected);
+    const normalizedSelected = React.useMemo(() => {
+        if (!selected) return undefined;
+        if (selected instanceof Date) return startOfDay(selected);
+        if ((selected as DateRange).from) {
+            return {
+                from: startOfDay((selected as DateRange).from!),
+                to: (selected as DateRange).to ? startOfDay((selected as DateRange).to!) : undefined
+            };
+        }
+        return selected;
+    }, [selected]);
+
+    const [tempSelected, setTempSelected] = React.useState<Date | DateRange | undefined>(normalizedSelected);
+
+    // Sync ONLY when the prop 'selected' actually changes from the outside
+    const lastPropRef = React.useRef(JSON.stringify(normalizedSelected));
+    React.useEffect(() => {
+        const currentPropJson = JSON.stringify(normalizedSelected);
+        if (currentPropJson !== lastPropRef.current) {
+            setTempSelected(normalizedSelected);
+            lastPropRef.current = currentPropJson;
+        }
+    }, [normalizedSelected]);
+
+    const handleDaySelect = (d: Date | undefined) => {
+        if (d) setTempSelected(startOfDay(d));
+    };
 
     const handleYearChange = (year: string) => {
         const newDate = setYear(month, parseInt(year))
@@ -119,7 +145,7 @@ export function DatePickerCustom({ selected, onSelect, onRangeSelect, onClose, m
                 <DayPicker
                     mode={mode as any}
                     selected={tempSelected as any}
-                    onSelect={setTempSelected as any}
+                    onSelect={mode === "single" ? handleDaySelect as any : setTempSelected as any}
                     month={month}
                     onMonthChange={setMonthInternal}
                     showOutsideDays
@@ -132,13 +158,13 @@ export function DatePickerCustom({ selected, onSelect, onRangeSelect, onClose, m
                         weekdays: "flex justify-between",
                         weekday: "text-muted-foreground w-9 font-normal text-[0.8rem] text-center",
                         week: "flex w-full mt-2 justify-between",
-                        day: "h-9 w-9 text-center text-sm p-0 relative focus-within:relative focus-within:z-20",
+                        day: "h-9 w-9 text-center text-sm p-0 relative",
                         day_button: cn(
-                            "h-9 w-9 p-0 font-normal rounded-md transition-colors hover:bg-green-50",
-                            "aria-selected:bg-[#064e3b] aria-selected:!text-white aria-selected:font-bold"
+                            "h-9 w-9 p-0 font-normal rounded-md transition-all duration-200 border-none",
+                            "text-[#064e3b] hover:bg-green-100"
                         ),
-                        selected: "bg-[#064e3b] !text-white hover:bg-[#064e3b]/90",
-                        today: "text-[#064e3b] font-bold border border-[#064e3b]/20",
+                        selected: "bg-[#064e3b] !text-white font-bold opacity-100 hover:bg-[#064e3b]/90 [&_button]:!text-white",
+                        today: "text-[#064e3b] font-black border-2 border-[#064e3b]/40",
                         outside: "text-muted-foreground opacity-50",
                         disabled: "text-muted-foreground opacity-50",
                     }}

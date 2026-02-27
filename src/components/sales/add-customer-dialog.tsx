@@ -25,7 +25,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { useState } from "react";
 import { useTransactions } from "@/context/transaction-provider";
-import { User } from "lucide-react";
+import { User, Hash, MapPin, Phone } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/context/language-context";
 
@@ -40,7 +40,7 @@ type CustomerFormValues = z.infer<typeof customerFormSchema>;
 
 export function AddCustomerDialog({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
-  const { addCustomer } = useTransactions();
+  const { addCustomer, customers } = useTransactions();
   const { t } = useLanguage();
 
   const form = useForm<CustomerFormValues>({
@@ -58,6 +58,25 @@ export function AddCustomerDialog({ children }: { children: React.ReactNode }) {
   const { toast } = useToast();
 
   async function onSubmit(data: CustomerFormValues) {
+    const existingCustomer = customers.find(c => c.code === (data.code || ""));
+    if (existingCustomer) {
+      toast({
+        title: "Duplicate Customer Code",
+        description: `Customer code '${data.code}' is already assigned to ${existingCustomer.name}.`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (data.code === "000") {
+      toast({
+        title: "Reserved Code",
+        description: "Customer code '000' is reserved for Walk-in Customer.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
       await addCustomer({
@@ -94,7 +113,10 @@ export function AddCustomerDialog({ children }: { children: React.ReactNode }) {
               name="code"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t('customers.code_label')}</FormLabel>
+                  <FormLabel className="flex items-center gap-2 font-bold">
+                    <Hash className="h-4 w-4" />
+                    {t('customers.code_label')}
+                  </FormLabel>
                   <FormControl>
                     <Input placeholder={t('customers.code_label')} {...field} />
                   </FormControl>
@@ -107,7 +129,7 @@ export function AddCustomerDialog({ children }: { children: React.ReactNode }) {
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="flex items-center gap-2">
+                  <FormLabel className="flex items-center gap-2 font-bold">
                     <User className="h-4 w-4" />
                     {t('customers.name_label')}
                   </FormLabel>
@@ -123,7 +145,10 @@ export function AddCustomerDialog({ children }: { children: React.ReactNode }) {
               name="address"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t('customers.address_label')}</FormLabel>
+                  <FormLabel className="flex items-center gap-2 font-bold">
+                    <MapPin className="h-4 w-4" />
+                    {t('customers.address_label')}
+                  </FormLabel>
                   <FormControl>
                     <Input placeholder={t('customers.address_label')} {...field} />
                   </FormControl>
@@ -136,7 +161,10 @@ export function AddCustomerDialog({ children }: { children: React.ReactNode }) {
               name="contact"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t('customers.phone_label')}</FormLabel>
+                  <FormLabel className="flex items-center gap-2 font-bold">
+                    <Phone className="h-4 w-4" />
+                    {t('customers.phone_label')}
+                  </FormLabel>
                   <FormControl>
                     <Input placeholder={t('customers.phone_label')} {...field} />
                   </FormControl>

@@ -23,8 +23,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { useEffect } from "react";
+import { Package, Hash } from "lucide-react";
 import { useTransactions } from "@/context/transaction-provider";
 import { Product } from "@/lib/types";
+
+import { useLanguage } from "@/context/language-context";
 
 const productFormSchema = z.object({
     itemCode: z.string().min(1, "Item code is required"),
@@ -41,6 +44,7 @@ interface EditProductDialogProps {
 
 export function EditProductDialog({ product, open, onOpenChange }: EditProductDialogProps) {
     const { updateProduct } = useTransactions();
+    const { t } = useLanguage();
     const form = useForm<ProductFormValues>({
         resolver: zodResolver(productFormSchema),
         defaultValues: {
@@ -73,10 +77,7 @@ export function EditProductDialog({ product, open, onOpenChange }: EditProductDi
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-2xl">
                 <DialogHeader>
-                    <DialogTitle>Edit Product</DialogTitle>
-                    <DialogDescription>
-                        Edit the details of the product.
-                    </DialogDescription>
+                    <DialogTitle>{t('actions.edit')} {t('nav.products')}</DialogTitle>
                 </DialogHeader>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -86,7 +87,10 @@ export function EditProductDialog({ product, open, onOpenChange }: EditProductDi
                                 name="itemCode"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Item Code</FormLabel>
+                                        <FormLabel className="font-bold flex items-center gap-2">
+                                            <Hash className="h-4 w-4 text-primary" />
+                                            {t('products.item_code')}
+                                        </FormLabel>
                                         <FormControl>
                                             <Input placeholder="e.g. VEG006" {...field} />
                                         </FormControl>
@@ -99,7 +103,10 @@ export function EditProductDialog({ product, open, onOpenChange }: EditProductDi
                                 name="name"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Item Name</FormLabel>
+                                        <FormLabel className="font-bold flex items-center gap-2">
+                                            <Package className="h-4 w-4 text-primary" />
+                                            {t('products.item_name')}
+                                        </FormLabel>
                                         <FormControl>
                                             <Input placeholder="e.g. Bell Pepper" {...field} />
                                         </FormControl>
@@ -110,7 +117,7 @@ export function EditProductDialog({ product, open, onOpenChange }: EditProductDi
                         </div>
 
                         <DialogFooter>
-                            <Button type="submit">Save Changes</Button>
+                            <Button type="submit">{t('actions.save')}</Button>
                         </DialogFooter>
                     </form>
                 </Form>

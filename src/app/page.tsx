@@ -19,6 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { RecentSalesChart } from '@/components/dashboard/recent-sales-chart';
 import {
   Banknote,
+  CreditCard,
   Download,
   Package,
   ShoppingCart,
@@ -37,7 +38,7 @@ export default function DashboardPage() {
   const { t, language } = useLanguage();
 
   const recentTransactions = useMemo(() => {
-    return transactions.slice(-10).reverse().map(t => ({
+    return transactions.slice(0, 10).map(t => ({
       id: t.id,
       customer: t.party,
       amount: t.amount,
@@ -46,6 +47,8 @@ export default function DashboardPage() {
   }, [transactions]);
 
   const totalRevenue = useMemo(() => transactions.filter(t => t.type === 'Sale').reduce((acc, curr) => acc + curr.amount, 0), [transactions]);
+  const totalCashRevenue = useMemo(() => transactions.filter(t => t.type === 'Sale' && t.payment === 'Cash').reduce((acc, curr) => acc + curr.amount, 0), [transactions]);
+  const totalCreditRevenue = useMemo(() => transactions.filter(t => t.type === 'Sale' && t.payment === 'Credit').reduce((acc, curr) => acc + curr.amount, 0), [transactions]);
   const salesCount = useMemo(() => transactions.filter(t => t.type === 'Sale').length, [transactions]);
   const outstandingTotal = useMemo(() => customerPayments.reduce((acc, curr) => acc + curr.dueAmount, 0), [customerPayments]);
 
@@ -145,6 +148,27 @@ export default function DashboardPage() {
               <p className="text-xs text-rose-700/70 font-medium">
                 {t('dashboard.items_in_stock')}
               </p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-indigo-50 to-purple-100 border-purple-200 shadow-md relative overflow-hidden lg:col-span-1 md:col-span-2">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-bold text-indigo-800 uppercase tracking-widest flex items-center gap-2">
+                <CreditCard className="h-4 w-4 text-indigo-600" />
+                Payment Summary
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="space-y-3">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold text-emerald-700 uppercase">{t('forms.cash_bill')}</span>
+                  <span className="text-xl font-black text-emerald-900 leading-tight">{formatCurrency(totalCashRevenue)}</span>
+                </div>
+                <div className="flex flex-col border-t border-purple-200/50 pt-2">
+                  <span className="text-[10px] font-bold text-rose-700 uppercase">{t('forms.credit_bill')}</span>
+                  <span className="text-xl font-black text-rose-900 leading-tight">{formatCurrency(totalCreditRevenue)}</span>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>

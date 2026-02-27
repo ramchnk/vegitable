@@ -24,7 +24,9 @@ import { z } from "zod";
 import type { PaymentDetail, Customer } from "@/lib/types";
 import { useEffect } from "react";
 import { useTransactions } from "@/context/transaction-provider";
-import { Trash } from "lucide-react";
+import { Trash, User, Hash, MapPin, Phone, Wallet } from "lucide-react";
+import { useLanguage } from "@/context/language-context";
+import { useToast } from "@/hooks/use-toast";
 
 const customerFormSchema = z.object({
   code: z.string().min(1, "Customer Code Required"),
@@ -52,6 +54,8 @@ export function EditCustomerDialog({
   onDelete,
 }: EditCustomerDialogProps) {
   const { customers } = useTransactions();
+  const { t } = useLanguage();
+  const { toast } = useToast();
 
   const form = useForm<CustomerFormValues>({
     resolver: zodResolver(customerFormSchema),
@@ -82,6 +86,16 @@ export function EditCustomerDialog({
       const customer = customers.find(c => c.id === payment.partyId);
       if (!customer) return;
 
+      const duplicateCodeCustomer = customers.find(c => c.code === data.code && c.id !== customer.id);
+      if (duplicateCodeCustomer) {
+        toast({
+          title: "Duplicate Customer Code",
+          description: `Customer code '${data.code}' is already assigned to ${duplicateCodeCustomer.name}.`,
+          variant: "destructive"
+        });
+        return;
+      }
+
       const updatedCustomer: Customer = {
         ...customer,
         name: data.name,
@@ -105,11 +119,13 @@ export function EditCustomerDialog({
     onOpenChange(false);
   }
 
+  const isWalkIn = payment ? customers.find(c => c.id === payment.partyId)?.code === "000" : false;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Edit Customer Name</DialogTitle>
+          <DialogTitle>{t('customers.edit_customer_title')}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -118,9 +134,12 @@ export function EditCustomerDialog({
               name="code"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Customer Code</FormLabel>
+                  <FormLabel className="flex items-center gap-2 font-bold">
+                    <Hash className="h-4 w-4" />
+                    {t('customers.code_label')}
+                  </FormLabel>
                   <FormControl>
-                    <Input placeholder="Customer Code" {...field} />
+                    <Input placeholder={t('customers.code_label')} {...field} disabled={isWalkIn} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -131,9 +150,12 @@ export function EditCustomerDialog({
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Customer</FormLabel>
+                  <FormLabel className="flex items-center gap-2 font-bold">
+                    <User className="h-4 w-4" />
+                    {t('customers.name_label')}
+                  </FormLabel>
                   <FormControl>
-                    <Input {...field} />
+                    <Input {...field} disabled={isWalkIn} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -144,9 +166,12 @@ export function EditCustomerDialog({
               name="amount"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Amount</FormLabel>
+                  <FormLabel className="flex items-center gap-2 font-bold">
+                    <Wallet className="h-4 w-4" />
+                    {t('forms.amount')}
+                  </FormLabel>
                   <FormControl>
-                    <Input type="number" step="any" {...field} />
+                    <Input type="number" step="any" {...field} disabled={isWalkIn} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -157,9 +182,12 @@ export function EditCustomerDialog({
               name="address"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Address 1</FormLabel>
+                  <FormLabel className="flex items-center gap-2 font-bold">
+                    <MapPin className="h-4 w-4" />
+                    {t('customers.address_label')}
+                  </FormLabel>
                   <FormControl>
-                    <Input placeholder="Address 1" {...field} />
+                    <Input placeholder={t('customers.address_label')} {...field} disabled={isWalkIn} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -170,28 +198,33 @@ export function EditCustomerDialog({
               name="contact"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Phone Number</FormLabel>
+                  <FormLabel className="flex items-center gap-2 font-bold">
+                    <Phone className="h-4 w-4" />
+                    {t('customers.phone_label')}
+                  </FormLabel>
                   <FormControl>
-                    <Input placeholder="Phone Number" {...field} />
+                    <Input placeholder={t('customers.phone_label')} {...field} disabled={isWalkIn} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
             <DialogFooter className="justify-between pt-4">
-              <Button
-                type="button"
-                variant="destructive"
-                size="icon"
-                onClick={() => {
-                  if (payment && window.confirm(`Are you sure you want to delete ${payment.partyName}?`)) {
-                    onDelete(payment.partyId);
-                    onOpenChange(false);
-                  }
-                }}
-              >
-                <Trash className="h-4 w-4" />
-              </Button>
+              {!isWalkIn && (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="icon"
+                  onClick={() => {
+                    if (payment && window.confirm(`Are you sure you want to delete ${payment.partyName}?`)) {
+                      onDelete(payment.partyId);
+                      onOpenChange(false);
+                    }
+                  }}
+                >
+                  <Trash className="h-4 w-4" />
+                </Button>
+              )}
               <div className="flex gap-2">
                 <Button type="submit" size="icon">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6L9 17L4 12" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>

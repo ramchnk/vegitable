@@ -21,7 +21,7 @@ export default function CreditsPage() {
                 </div>
                 <div className="space-y-1">
                   <CardTitle className="text-xl font-bold text-[#166534]">Supplier Transaction</CardTitle>
-                  <p className="text-sm font-medium text-[#166534]/70">Farmer Details & Payments</p>
+                  <p className="text-sm font-medium text-[#166534]/70">Supplier Details & Payments</p>
                 </div>
               </CardContent>
             </Card>
@@ -34,7 +34,7 @@ export default function CreditsPage() {
                   <ShoppingCart className="h-12 w-12 text-[#3730a3]" />
                 </div>
                 <div className="space-y-1">
-                  <CardTitle className="text-xl font-bold text-[#3730a3]">Buyer Transaction</CardTitle>
+                  <CardTitle className="text-xl font-bold text-[#3730a3]">Customer Transaction</CardTitle>
                   <p className="text-sm font-medium text-[#3730a3]/70">Customer Details & Payments</p>
                 </div>
               </CardContent>
