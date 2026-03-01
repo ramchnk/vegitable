@@ -48,9 +48,9 @@ export default function CustomerLedgerPage() {
             return { periodTransactions: [], openingBalance: 0, totalSales: 0, totalCredit: 0, closingBalance: 0 };
         }
 
-        const normalizedName = customer.name.toLowerCase().trim();
+        const normalizedName = customer.name?.toLowerCase().trim();
         const allCustomerTransactions = transactions.filter(t =>
-            t.party.toLowerCase().trim() === normalizedName &&
+            t.party?.toLowerCase().trim() === normalizedName &&
             (t.type === 'Sale' || t.type === 'Payment')
         );
 

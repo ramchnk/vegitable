@@ -123,7 +123,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
             throw error;
         }
 
-        if (suppliers.some(s => s.name.toLowerCase() === newSupplierData.name.toLowerCase())) {
+        if (suppliers.some(s => s.name?.toLowerCase() === newSupplierData.name?.toLowerCase())) {
             toast({ title: 'Error', description: 'Supplier with this name already exists.', variant: 'destructive' });
             return;
         }
@@ -177,7 +177,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
             throw error;
         }
 
-        if (customers.some(c => c.name.toLowerCase() === newCustomerData.name.toLowerCase())) {
+        if (customers.some(c => c.name?.toLowerCase() === newCustomerData.name?.toLowerCase())) {
             toast({ title: 'Error', description: 'Customer with this name already exists.', variant: 'destructive' });
             return;
         }
@@ -238,18 +238,43 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
             }, 0);
         const nextBillNumber = maxBillNumber + 1;
 
-        newTransactions.forEach(t => {
-            const transRef = doc(collection(firestore, 'transactions'));
-            batch.set(transRef, { ...t, billNumber: nextBillNumber, createdAt });
-        });
-
         const totalAmount = newTransactions.reduce((sum, t) => sum + t.amount, 0);
         const transactionType = newTransactions[0].type;
         const paymentMethod = newTransactions[0].payment;
         const partyName = partyDetails.name;
 
+        let openingBalance = 0;
+        let closingBalance = 0;
+        let amountPaid_calc = 0;
+
         if (transactionType === 'Sale') {
-            let customer = customers.find(c => c.name.toLowerCase() === partyName.toLowerCase());
+            const customer = customers.find(c => c.name?.toLowerCase() === partyName?.toLowerCase());
+            const isWalkIn = customer?.code === "000";
+            const existingPayment = customer ? customerPayments.find(p => p.partyId === customer.id) : undefined;
+            openingBalance = isWalkIn ? 0 : (existingPayment?.dueAmount || 0);
+            amountPaid_calc = isWalkIn ? totalAmount : (amountPaidOverride !== undefined ? amountPaidOverride : (paymentMethod !== 'Credit' ? totalAmount : 0));
+            closingBalance = isWalkIn ? 0 : (openingBalance + totalAmount - amountPaid_calc);
+        } else {
+            const supplier = suppliers.find(s => s.name?.toLowerCase() === partyName?.toLowerCase());
+            const existingPayment = supplier ? supplierPayments.find(p => p.partyId === supplier.id) : undefined;
+            openingBalance = existingPayment?.dueAmount || 0;
+            amountPaid_calc = amountPaidOverride !== undefined ? amountPaidOverride : (paymentMethod !== 'Credit' ? totalAmount : 0);
+            closingBalance = openingBalance + totalAmount - amountPaid_calc;
+        }
+
+        newTransactions.forEach(t => {
+            const transRef = doc(collection(firestore, 'transactions'));
+            batch.set(transRef, {
+                ...t,
+                billNumber: nextBillNumber,
+                openingBalance,
+                closingBalance,
+                createdAt
+            });
+        });
+
+        if (transactionType === 'Sale') {
+            let customer = customers.find(c => c.name?.toLowerCase() === partyName?.toLowerCase());
             let customerId: string;
 
             if (!customer) {
@@ -263,7 +288,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
             const paymentRef = doc(firestore, 'customerPayments', customerId);
             const existingPayment = customerPayments.find(p => p.partyId === customerId);
             const isWalkIn = customer?.code === "000";
-            const amountPaid = isWalkIn ? totalAmount : (amountPaidOverride !== undefined ? amountPaidOverride : (paymentMethod !== 'Credit' ? totalAmount : 0));
+            const amountPaid = amountPaid_calc;
 
             if (existingPayment) {
                 const newTotalAmount = existingPayment.totalAmount + totalAmount;
@@ -299,11 +324,14 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
                     amount: amountPaid,
                     payment: paymentMethod,
                     debit: amountPaid,
+                    billNumber: nextBillNumber,
+                    openingBalance,
+                    closingBalance,
                     createdAt: createdAt
                 });
             }
         } else { // Purchase
-            let supplier = suppliers.find(s => s.name.toLowerCase() === partyName.toLowerCase());
+            let supplier = suppliers.find(s => s.name?.toLowerCase() === partyName?.toLowerCase());
             let supplierId: string;
 
             if (!supplier) {
@@ -541,7 +569,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
             throw error;
         }
 
-        if (products.some(p => p.itemCode.toLowerCase() === newProductData.itemCode.toLowerCase())) {
+        if (products.some(p => p.itemCode?.toLowerCase() === newProductData.itemCode?.toLowerCase())) {
             toast({ title: 'Error', description: 'Product with this code already exists.', variant: 'destructive' });
             return;
         }
@@ -564,7 +592,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
     const updateProduct = async (updatedProduct: Product) => {
         if (!firestore) return;
 
-        if (products.some(p => p.itemCode.toLowerCase() === updatedProduct.itemCode.toLowerCase() && p.id !== updatedProduct.id)) {
+        if (products.some(p => p.itemCode?.toLowerCase() === updatedProduct.itemCode?.toLowerCase() && p.id !== updatedProduct.id)) {
             toast({ title: 'Error', description: 'Product with this code already exists.', variant: 'destructive' });
             return;
         }

@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
+import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebaseApp } from '@/firebase/provider';
 import { motion } from 'framer-motion';
@@ -46,6 +46,34 @@ export default function LoginPage() {
     useEffect(() => {
         setMounted(true);
     }, []);
+
+    const handleForgotPassword = async () => {
+        if (!email) {
+            toast({
+                title: "Error",
+                description: "Please enter your email address first.",
+                variant: "destructive"
+            });
+            return;
+        }
+        setLoading(true);
+        try {
+            await sendPasswordResetEmail(auth, email);
+            toast({
+                title: "Reset Email Sent",
+                description: "Check your inbox for password reset instructions.",
+            });
+        } catch (error: any) {
+            console.error(error);
+            toast({
+                title: "Error",
+                description: error.message,
+                variant: "destructive"
+            });
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleEmailSignIn = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -119,7 +147,17 @@ export default function LoginPage() {
                                     />
                                 </div>
                                 <div className="grid gap-2">
-                                    <Label htmlFor="password" className="text-gray-200">Password</Label>
+                                    <div className="flex items-center justify-between">
+                                        <Label htmlFor="password" className="text-gray-200">Password</Label>
+                                        <button
+                                            type="button"
+                                            onClick={handleForgotPassword}
+                                            className="text-xs text-green-400 hover:text-green-300 transition-colors underline underline-offset-4"
+                                            disabled={loading}
+                                        >
+                                            Forgot Password?
+                                        </button>
+                                    </div>
                                     <Input
                                         id="password"
                                         placeholder="Password"
@@ -141,19 +179,6 @@ export default function LoginPage() {
                             </div>
                         </form>
                     </CardContent>
-                    <CardFooter>
-                        <p className="w-full text-center text-sm text-gray-400">
-                            By clicking continue, you agree to our{" "}
-                            <a href="/terms" className="underline underline-offset-4 hover:text-green-400 transition-colors">
-                                Terms
-                            </a>{" "}
-                            and{" "}
-                            <a href="/privacy" className="underline underline-offset-4 hover:text-green-400 transition-colors">
-                                Privacy Policy
-                            </a>
-                            .
-                        </p>
-                    </CardFooter>
                 </Card>
             </motion.div>
         </div>

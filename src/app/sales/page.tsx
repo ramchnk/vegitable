@@ -92,6 +92,7 @@ export default function SalesPage() {
   const { t } = useLanguage();
   const [outstanding, setOutstanding] = useState(0);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const creatingRef = useRef(false);
 
   const dateTriggerRef = useRef<HTMLButtonElement>(null);
@@ -132,12 +133,13 @@ export default function SalesPage() {
   const watchedItems = form.watch("items");
   const watchedAmountPaid = form.watch("amountPaid");
   const watchedSalesDate = form.watch("salesDate");
+  const watchedPaymentType = form.watch("paymentType");
 
   useEffect(() => {
     if (loading) return;
 
     // 1. Cleanup Duplicates
-    const walkInCustomers = customers.filter(c => c.name.toLowerCase() === "walk-in customer");
+    const walkInCustomers = customers.filter(c => c.name?.toLowerCase() === "walk-in customer");
     if (walkInCustomers.length > 1) {
       const [keep, ...duplicates] = walkInCustomers;
       console.log(`Found ${duplicates.length} duplicate Walk-in Customers. Deleting...`);
@@ -151,7 +153,7 @@ export default function SalesPage() {
     if (loading) return;
 
     // Check for "Walk-in Customer"
-    const walkInCustomers = customers.filter(c => c.name.toLowerCase() === "walk-in customer");
+    const walkInCustomers = customers.filter(c => c.name?.toLowerCase() === "walk-in customer");
 
     if (walkInCustomers.length > 0) {
       const walkIn = walkInCustomers[0];
@@ -176,7 +178,7 @@ export default function SalesPage() {
   useEffect(() => {
     if (watchedCustomerId) {
       const customer = customers.find(c => c.id === watchedCustomerId);
-      const isWalkIn = customer?.name.toLowerCase() === "walk-in customer";
+      const isWalkIn = customer?.name?.toLowerCase() === "walk-in customer";
 
       if (isWalkIn) {
         setOutstanding(0);
@@ -194,27 +196,23 @@ export default function SalesPage() {
     [watchedItems]
   );
 
-  // Auto-update Paid Amount for Walk-in Customer
-  useEffect(() => {
-    const customer = customers.find(c => c.id === watchedCustomerId);
-    const isWalkIn = customer?.name.toLowerCase() === "walk-in customer";
-    if (isWalkIn) {
-      form.setValue("amountPaid", totalCost === 0 ? "" as any : totalCost);
-    }
-  }, [watchedCustomerId, totalCost, customers, form]);
-
+  // Manual Paid Amount logic
   const netAmount = totalCost;
-  const balanceAmount = outstanding + netAmount - (watchedAmountPaid || 0);
+  const isWalkIn = watchedCustomerId && customers.find(c => c.id === watchedCustomerId)?.name?.toLowerCase() === "walk-in customer";
+  const balanceAmount = isWalkIn
+    ? 0
+    : outstanding + netAmount - (watchedAmountPaid || 0);
 
-  async function onSubmit(data: SalesFormValues, printType?: 'thermal' | 'a5') {
+  const onSubmit = async (data: SalesFormValues, printType?: 'thermal' | 'a5') => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
     const customer = customers.find(c => c.id === data.customerId);
-    if (!customer) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Selected customer not found.' });
-      return;
-    }
 
+    console.log("Submitting bill with payment type:", data.paymentType, "Customer:", customer?.name);
     const paymentMethod = data.paymentType;
-    const finalAmountPaid = data.paymentType === 'Cash' ? totalCost : (data.amountPaid || 0);
+    const isWalkIn = customer?.name?.toLowerCase() === "walk-in customer";
+    const finalAmountPaid = isWalkIn ? totalCost : (data.amountPaid || 0);
 
     const newTransactions = data.items.map(item => {
       const product = products.find(p => p.id === item.itemId);
@@ -247,7 +245,7 @@ export default function SalesPage() {
         handlePrintA5(typeof billNo === 'number' ? billNo : undefined, preSaveBalance);
       }
       form.reset({
-        customerId: "",
+        customerId: customers.find(c => c.name?.toLowerCase() === "walk-in customer")?.id || "",
         salesDate: new Date(),
         items: [],
         amountPaid: "" as any,
@@ -256,6 +254,8 @@ export default function SalesPage() {
     } catch (error) {
       console.error("Failed to save transaction:", error);
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to save sales entry.' });
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -377,22 +377,32 @@ export default function SalesPage() {
     const billNo = forcedBillNo || (transactions
       .filter(t => t.date === format(form.getValues("salesDate"), 'yyyy-MM-dd'))
       .reduce((max, t) => (t.billNumber || 0) > max ? (t.billNumber || 0) : max, 0) + 1);
-    const date = form.getValues("salesDate");
+    const selectedDate = form.getValues("salesDate");
+    const now = new Date();
+    const isToday = format(selectedDate, 'yyyy-MM-dd') === format(now, 'yyyy-MM-dd');
+    const date = isToday ? now : selectedDate;
     const paymentType = form.getValues("paymentType");
     const manualAmountPaid = form.getValues("amountPaid") || 0;
+    const isWalkIn = customer?.name?.toLowerCase() === "walk-in customer";
 
     const totalAmount = items.reduce((sum, item) => sum + item.total, 0);
     const totalItems = items.length;
     const totalQty = items.reduce((sum, item) => sum + item.quantity, 0);
     const oldBalance = forcedOldBalance !== undefined ? forcedOldBalance : outstanding;
-    const amountPaid = paymentType === 'Cash' ? totalAmount : manualAmountPaid;
-    const currentBalance = oldBalance + totalAmount - amountPaid;
+    const amountPaid = isWalkIn ? totalAmount : manualAmountPaid;
+    const currentBalance = isWalkIn ? 0 : (oldBalance + totalAmount - amountPaid);
 
     const printWindow = window.open('', '_blank', 'width=400,height=600');
     if (printWindow) {
       const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
         .map(node => node.cloneNode(true));
       styles.forEach(style => printWindow.document.head.appendChild(style));
+
+      const hideHeaderFooterStyle = printWindow.document.createElement('style');
+      hideHeaderFooterStyle.innerHTML = '@page { margin: 0; } body { margin: 0; }';
+      printWindow.document.head.appendChild(hideHeaderFooterStyle);
+      printWindow.document.title = '';
+
       const container = printWindow.document.createElement('div');
       printWindow.document.body.appendChild(container);
       const root = createRoot(container);
@@ -400,7 +410,7 @@ export default function SalesPage() {
         <ThermalPrint
           billNo={billNo}
           date={date}
-          customerName={customer.name}
+          customerName={customer?.name}
           customerAddress={customer.address}
           customerPhone={customer.contact}
           paymentType={paymentType}
@@ -446,20 +456,30 @@ export default function SalesPage() {
     const billNo = forcedBillNo || (transactions
       .filter(t => t.date === format(form.getValues("salesDate"), 'yyyy-MM-dd'))
       .reduce((max, t) => (t.billNumber || 0) > max ? (t.billNumber || 0) : max, 0) + 1);
-    const date = form.getValues("salesDate");
+    const selectedDate = form.getValues("salesDate");
+    const now = new Date();
+    const isToday = format(selectedDate, 'yyyy-MM-dd') === format(now, 'yyyy-MM-dd');
+    const date = isToday ? now : selectedDate;
     const paymentType = form.getValues("paymentType");
     const manualAmountPaid = form.getValues("amountPaid") || 0;
+    const isWalkIn = customer?.name?.toLowerCase() === "walk-in customer";
 
     const totalAmount = items.reduce((sum, item) => sum + item.total, 0);
     const oldBalance = forcedOldBalance !== undefined ? forcedOldBalance : outstanding;
-    const amountPaid = paymentType === 'Cash' ? totalAmount : manualAmountPaid;
-    const currentBalance = oldBalance + totalAmount - amountPaid;
+    const amountPaid = isWalkIn ? totalAmount : manualAmountPaid;
+    const currentBalance = isWalkIn ? 0 : (oldBalance + totalAmount - amountPaid);
 
     const printWindow = window.open('', '_blank', 'width=600,height=800');
     if (printWindow) {
       const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
         .map(node => node.cloneNode(true));
       styles.forEach(style => printWindow.document.head.appendChild(style));
+
+      const hideHeaderFooterStyle = printWindow.document.createElement('style');
+      hideHeaderFooterStyle.innerHTML = '@page { margin: 0; } body { margin: 0; }';
+      printWindow.document.head.appendChild(hideHeaderFooterStyle);
+      printWindow.document.title = '';
+
       const container = printWindow.document.createElement('div');
       printWindow.document.body.appendChild(container);
       const root = createRoot(container);
@@ -467,7 +487,7 @@ export default function SalesPage() {
         <A5Print
           billNo={billNo}
           date={date}
-          customerName={customer.name}
+          customerName={customer?.name}
           customerAddress={customer.address}
           customerPhone={customer.contact}
           paymentType={paymentType}
@@ -484,6 +504,36 @@ export default function SalesPage() {
       }, 1000);
     }
   };
+
+  // Shortcut Keys handler
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // F4 for save bill
+      if (e.key === "F4") {
+        e.preventDefault();
+        if (!isSubmitting && watchedItems.length > 0) {
+          form.handleSubmit((data) => onSubmit(data))();
+        }
+      }
+      // F5 for Save & thermal print
+      if (e.key === "F5") {
+        e.preventDefault();
+        if (!isSubmitting && watchedItems.length > 0) {
+          form.handleSubmit((data) => onSubmit(data, 'thermal'))();
+        }
+      }
+      // F6 for Save & A5 print
+      if (e.key === "F6") {
+        e.preventDefault();
+        if (!isSubmitting && watchedItems.length > 0) {
+          form.handleSubmit((data) => onSubmit(data, 'a5'))();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isSubmitting, watchedItems, form, onSubmit]);
 
   return (
     <>
@@ -663,9 +713,9 @@ export default function SalesPage() {
 
                 {/* Add Items (Flattened) */}
                 <div className="space-y-4 px-1">
-                  <div className="flex items-center gap-2 pb-2 border-b border-primary/10">
-                    <Plus className="h-5 w-5 text-primary" />
-                    <h3 className="text-lg font-semibold tracking-tight">{t('forms.add_items')}</h3>
+                  <div className="flex items-center gap-2 pb-2 border-b border-primary/5">
+                    <Plus className="h-4 w-4 text-green-500" />
+                    <h3 className="text-sm font-medium uppercase tracking-wider text-green-600/80">{t('forms.add_items')}</h3>
                   </div>
 
                   <div className="space-y-2">
@@ -826,24 +876,17 @@ export default function SalesPage() {
                   <CardFooter className="border-t bg-muted/30 flex flex-col gap-4 pt-6">
                     <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-6 pb-2">
                       <div className="space-y-3">
-                        {(() => {
-                          const customer = customers.find(c => c.id === watchedCustomerId);
-                          const isWalkIn = customer?.name.toLowerCase() === "walk-in customer";
-                          if (isWalkIn) return null;
-                          return (
-                            <div className="flex justify-between items-center text-sm">
-                              <span className="text-muted-foreground font-bold">{t('forms.outstanding')}:</span>
-                              <span className="font-semibold text-destructive">{formatCurrency(outstanding)}</span>
-                            </div>
-                          );
-                        })()}
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-muted-foreground font-bold">{t('forms.outstanding')}:</span>
+                          <span className="font-semibold text-destructive">{formatCurrency(outstanding)}</span>
+                        </div>
                         <div className="flex justify-between items-center text-sm">
                           <span className="text-muted-foreground font-bold">{t('forms.total_bill')}:</span>
                           <span className="font-semibold">{formatCurrency(totalCost)}</span>
                         </div>
                         <div className="flex justify-between items-center text-sm text-muted-foreground">
                           <span className="font-bold">{t('forms.paid_amount')}:</span>
-                          <span className="font-semibold">-{formatCurrency(watchedAmountPaid || 0)}</span>
+                          <span className="font-semibold">{(watchedAmountPaid || 0) > 0 ? '-' : ''}{formatCurrency(watchedAmountPaid || 0)}</span>
                         </div>
                         <div className="border-t border-primary/20 my-2 pt-2">
                           <div className="flex justify-between items-center bg-primary/10 p-2 rounded text-lg font-bold text-primary">
@@ -881,8 +924,8 @@ export default function SalesPage() {
                       </div>
                     </div>
 
-                    <div className="w-full flex flex-wrap items-center gap-2 pt-2 border-t">
-                      <Button type="button" variant="outline" onClick={clearBill} className="gap-2">
+                    <div className="w-full flex flex-wrap items-center gap-2 pt-2 border-t text-sm font-medium">
+                      <Button type="button" variant="outline" onClick={clearBill} disabled={isSubmitting} className="gap-2">
                         <Trash className="h-4 w-4" />
                         {t('actions.clear_bill')}
                       </Button>
@@ -893,7 +936,8 @@ export default function SalesPage() {
                         type="button"
                         variant="outline"
                         onClick={() => form.handleSubmit((data) => onSubmit(data, 'a5'))()}
-                        className="gap-2 border-primary/20 hover:bg-primary/5"
+                        disabled={isSubmitting || fields.length === 0}
+                        className="gap-2 border-primary/20 hover:bg-primary/5 h-11"
                       >
                         <Printer className="h-4 w-4" />
                         Save & Print A5
@@ -904,7 +948,8 @@ export default function SalesPage() {
                         type="button"
                         variant="outline"
                         onClick={() => form.handleSubmit((data) => onSubmit(data, 'thermal'))()}
-                        className="gap-2 border-primary/20 hover:bg-primary/5"
+                        disabled={isSubmitting || fields.length === 0}
+                        className="gap-2 border-primary/20 hover:bg-primary/5 h-11"
                       >
                         <Printer className="h-4 w-4" />
                         Save & Thermal
@@ -915,12 +960,13 @@ export default function SalesPage() {
                         type="button"
                         onClick={() => form.handleSubmit((data) => onSubmit(data))()}
                         size="lg"
-                        className="px-8 shadow-md"
+                        disabled={isSubmitting || fields.length === 0}
+                        className="px-8 shadow-md h-11"
                       >
-                        {t('actions.save_bill')}
+                        {isSubmitting ? t('actions.loading') : t('actions.save_bill')}
                       </Button>
 
-                      <Button type="button" variant="outline" size="icon" onClick={handleWhatsApp} className="h-11 w-11 text-green-600 hover:text-green-700 hover:bg-green-50">
+                      <Button type="button" variant="outline" size="icon" onClick={handleWhatsApp} disabled={isSubmitting || fields.length === 0} className="h-11 w-11 text-green-600 hover:text-green-700 hover:bg-green-50">
                         <MessageCircle className="h-5 w-5" />
                       </Button>
                     </div>

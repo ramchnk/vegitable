@@ -42,7 +42,7 @@ export default function SalesCustomersPage() {
 
   const sortedCustomers = useMemo(() => {
     let items = customerPayments.filter((customer) =>
-      customer.partyName.toLowerCase().includes(searchTerm.toLowerCase())
+      customer.partyName?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     if (sortConfig !== null) {

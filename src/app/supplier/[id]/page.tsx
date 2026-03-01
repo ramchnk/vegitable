@@ -48,9 +48,9 @@ export default function SupplierLedgerPage() {
             return { periodTransactions: [], openingBalance: 0, totalPurchases: 0, totalCredit: 0, closingBalance: 0 };
         }
 
-        const normalizedName = supplier.name.toLowerCase().trim();
+        const normalizedName = supplier.name?.toLowerCase().trim();
         const allSupplierTransactions = transactions.filter(t =>
-            t.party.toLowerCase().trim() === normalizedName &&
+            t.party?.toLowerCase().trim() === normalizedName &&
             (t.type === 'Purchase' || t.type === 'Payment')
         );
 
