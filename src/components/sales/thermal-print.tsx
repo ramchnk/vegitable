@@ -63,7 +63,7 @@ export const ThermalPrint = React.forwardRef<HTMLDivElement, ThermalPrintProps>(
 
             <div className="flex justify-between mb-1">
                 <span>No: {billNo}</span>
-                <span>Dt: {format(date, 'dd/MM/yy HH:mm')}</span>
+                <span>Dt: {format(date, 'dd/MM/yy hh:mm a')}</span>
             </div>
 
             <div className="border-b border-black border-dashed my-2" />

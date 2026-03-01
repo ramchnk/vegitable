@@ -42,7 +42,7 @@ export default function PurchaseSuppliersPage() {
 
   const sortedSuppliers = useMemo(() => {
     let items = supplierPayments.filter((supplier) =>
-      supplier.partyName.toLowerCase().includes(searchTerm.toLowerCase())
+      supplier.partyName?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     if (sortConfig !== null) {

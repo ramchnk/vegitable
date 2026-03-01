@@ -70,6 +70,8 @@ export type Transaction = {
     price?: number;
     debit?: number;
     credit?: number;
+    openingBalance?: number;
+    closingBalance?: number;
     createdAt?: string;
 }
 

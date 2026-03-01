@@ -69,12 +69,15 @@ interface GroupedSale {
     party: string;
     payment: string;
     totalAmount: number;
+    openingBalance?: number;
+    closingBalance?: number;
     items: {
         name: string;
         quantity: number;
         price: number;
         total: number;
     }[];
+    createdAt?: string;
 }
 
 export default function SalesHistoryPage() {
@@ -91,10 +94,10 @@ export default function SalesHistoryPage() {
         const groups: { [key: string]: GroupedSale } = {};
 
         transactions
-            .filter((t) => t.type === "Sale" || t.type === "Payment")
+            .filter((t) => t.type === "Sale")
             .forEach((t) => {
                 const billNo = t.billNumber || 0;
-                const dateStr = t.date; // already YYYY-MM-DD
+                const dateStr = t.date;
 
                 // For payments, we use a unique key per transaction since they don't have bill numbers
                 const groupKey = t.type === "Payment" ? `payment_${t.id}` : `${dateStr}_${billNo}`;
@@ -107,35 +110,28 @@ export default function SalesHistoryPage() {
                         party: t.party,
                         payment: t.payment,
                         totalAmount: 0,
-                        items: []
+                        items: [],
+                        createdAt: t.createdAt
                     };
                 }
 
                 if (t.type === "Sale") {
                     groups[groupKey].totalAmount += t.amount;
+                    if (t.openingBalance !== undefined) groups[groupKey].openingBalance = t.openingBalance;
+                    if (t.closingBalance !== undefined) groups[groupKey].closingBalance = t.closingBalance;
                     groups[groupKey].items.push({
                         name: t.item,
                         quantity: t.quantity || 0,
                         price: t.price || 0,
                         total: t.amount
                     });
-                } else if (t.type === "Payment") {
-                    groups[groupKey].totalAmount = t.amount;
-                    groups[groupKey].items.push({
-                        name: t.item || "Payment Received/Given",
-                        quantity: 0,
-                        price: t.amount,
-                        total: t.amount
-                    });
-                    // For payments, we want the type to be clear in the list
-                    groups[groupKey].payment = `Payment (${t.payment})`;
                 }
             });
 
         return Object.values(groups)
             .filter((sale) => {
                 const matchesSearch =
-                    sale.party.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    sale.party?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                     sale.billNumber.toString().includes(searchTerm);
 
                 const matchesPayment = paymentFilter === "All" || sale.payment === paymentFilter;
@@ -164,12 +160,16 @@ export default function SalesHistoryPage() {
 
     const getOldBalance = (customerName: string, targetDate: string, billNumber: number) => {
         return transactions
-            .filter(t => t.party.toLowerCase() === customerName.toLowerCase())
+            .filter(t => t.party?.toLowerCase() === customerName?.toLowerCase())
             .filter(t => {
                 if (t.date < targetDate) return true;
-                if (t.date === targetDate && (t.billNumber || 0) < billNumber && t.billNumber !== 0) return true;
-                // Payments on the same day with billNumber 0 are considered after or concurrent, 
-                // but for simple history, we order by billNumber.
+                if (t.date === targetDate) {
+                    // Include sales with smaller bill numbers
+                    if (t.type === 'Sale' && (t.billNumber || 0) < billNumber) return true;
+                    // Include payments with smaller bill numbers OR payments not linked to a bill (0 or undefined)
+                    // (Assuming non-bill payments happen before or after, but we treat them as part of the overall balance)
+                    if (t.type === 'Payment' && (t.billNumber || 0) < billNumber) return true;
+                }
                 return false;
             })
             .reduce((acc, t) => {
@@ -187,9 +187,22 @@ export default function SalesHistoryPage() {
     const handlePrintThermal = () => {
         if (!selectedSale) return;
 
-        const oldBalance = getOldBalance(selectedSale.party, selectedSale.date, selectedSale.billNumber);
-        const amountPaid = selectedSale.payment.includes('Cash') ? selectedSale.totalAmount : 0; // Simplified for history view
-        const currentBalance = oldBalance + selectedSale.totalAmount - amountPaid;
+        // "Never recompute" requirement: Use stored snapshots if available
+        const oldBalance = selectedSale.openingBalance !== undefined
+            ? selectedSale.openingBalance
+            : getOldBalance(selectedSale.party, selectedSale.date, selectedSale.billNumber);
+
+        // Find actual payments linked to this bill
+        const linkedPayments = transactions.filter(t =>
+            t.party?.toLowerCase() === selectedSale.party?.toLowerCase() &&
+            t.date === selectedSale.date &&
+            t.billNumber === selectedSale.billNumber &&
+            t.type === 'Payment'
+        );
+        const amountPaid = linkedPayments.reduce((sum, p) => sum + (p.debit || p.amount), 0);
+        const currentBalance = selectedSale.closingBalance !== undefined
+            ? selectedSale.closingBalance
+            : oldBalance + selectedSale.totalAmount - amountPaid;
 
         const totalQty = selectedSale.items.reduce((sum, item) => sum + item.quantity, 0);
         const totalItems = selectedSale.items.length;
@@ -200,6 +213,11 @@ export default function SalesHistoryPage() {
                 .map(node => node.cloneNode(true));
             styles.forEach(style => printWindow.document.head.appendChild(style));
 
+            const hideHeaderFooterStyle = printWindow.document.createElement('style');
+            hideHeaderFooterStyle.innerHTML = '@page { margin: 0; } body { margin: 0; }';
+            printWindow.document.head.appendChild(hideHeaderFooterStyle);
+            printWindow.document.title = '';
+
             const container = printWindow.document.createElement('div');
             printWindow.document.body.appendChild(container);
 
@@ -207,7 +225,7 @@ export default function SalesHistoryPage() {
             root.render(
                 <ThermalPrint
                     billNo={selectedSale.billNumber}
-                    date={new Date(selectedSale.date)}
+                    date={selectedSale.createdAt ? new Date(selectedSale.createdAt) : new Date(selectedSale.date)}
                     customerName={selectedSale.party}
                     paymentType={selectedSale.payment as "Cash" | "Credit"}
                     items={selectedSale.items}
@@ -229,18 +247,33 @@ export default function SalesHistoryPage() {
     const handlePrintA5 = () => {
         if (!selectedSale) return;
 
-        const oldBalance = getOldBalance(selectedSale.party, selectedSale.date, selectedSale.billNumber);
-        // For history, we might not have the exact paid amount if it was partial, 
-        // but we can estimate or use the total if it was Cash.
-        const isCash = selectedSale.payment.includes('Cash');
-        const amountPaid = isCash ? selectedSale.totalAmount : 0;
-        const currentBalance = oldBalance + selectedSale.totalAmount - amountPaid;
+        // "Never recompute" requirement: Use stored snapshots if available
+        const oldBalance = selectedSale.openingBalance !== undefined
+            ? selectedSale.openingBalance
+            : getOldBalance(selectedSale.party, selectedSale.date, selectedSale.billNumber);
+
+        // Find actual payments linked to this bill
+        const linkedPayments = transactions.filter(t =>
+            t.party?.toLowerCase() === selectedSale.party?.toLowerCase() &&
+            t.date === selectedSale.date &&
+            t.billNumber === selectedSale.billNumber &&
+            t.type === 'Payment'
+        );
+        const amountPaid = linkedPayments.reduce((sum, p) => sum + (p.debit || p.amount), 0);
+        const currentBalance = selectedSale.closingBalance !== undefined
+            ? selectedSale.closingBalance
+            : oldBalance + selectedSale.totalAmount - amountPaid;
 
         const printWindow = window.open('', '_blank', 'width=600,height=800');
         if (printWindow) {
             const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
                 .map(node => node.cloneNode(true));
             styles.forEach(style => printWindow.document.head.appendChild(style));
+
+            const hideHeaderFooterStyle = printWindow.document.createElement('style');
+            hideHeaderFooterStyle.innerHTML = '@page { margin: 0; } body { margin: 0; }';
+            printWindow.document.head.appendChild(hideHeaderFooterStyle);
+            printWindow.document.title = '';
 
             const container = printWindow.document.createElement('div');
             printWindow.document.body.appendChild(container);
@@ -249,7 +282,7 @@ export default function SalesHistoryPage() {
             root.render(
                 <A5Print
                     billNo={selectedSale.billNumber}
-                    date={new Date(selectedSale.date)}
+                    date={selectedSale.createdAt ? new Date(selectedSale.createdAt) : new Date(selectedSale.date)}
                     customerName={selectedSale.party}
                     paymentType={selectedSale.payment as "Cash" | "Credit"}
                     items={selectedSale.items}
@@ -319,7 +352,7 @@ export default function SalesHistoryPage() {
                                 <SelectValue placeholder="All Payments" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="All">All Payments</SelectItem>
+                                <SelectItem value="All">All Bills</SelectItem>
                                 <SelectItem value="Cash">Cash Bill</SelectItem>
                                 <SelectItem value="Credit">Credit Bill</SelectItem>
                             </SelectContent>
@@ -376,19 +409,25 @@ export default function SalesHistoryPage() {
                                         groupedSales.map((sale) => (
                                             <TableRow key={sale.id}>
                                                 <TableCell className="font-mono font-bold">{sale.billNumber === 0 ? '-' : sale.billNumber}</TableCell>
-                                                <TableCell className="text-muted-foreground">
-                                                    {format(new Date(sale.date), "dd/MM/yyyy")}
+                                                <TableCell className="text-muted-foreground py-2">
+                                                    <div className="font-bold text-primary">
+                                                        {format(new Date(sale.date), "dd/MM/yyyy")}
+                                                    </div>
+                                                    {sale.createdAt && (
+                                                        <div className="text-[10px] uppercase font-bold text-primary/80">
+                                                            {format(new Date(sale.createdAt), "hh:mm a")}
+                                                        </div>
+                                                    )}
                                                 </TableCell>
                                                 <TableCell className="font-medium uppercase">{sale.party}</TableCell>
                                                 <TableCell>
                                                     <span className={cn(
                                                         "px-2 py-1 rounded-full text-xs font-semibold whitespace-nowrap",
-                                                        sale.billNumber === 0 ? "bg-amber-100 text-amber-700 border border-amber-200" :
-                                                            sale.payment === "Cash" ? "bg-green-100 text-green-700" :
-                                                                sale.payment === "Credit" ? "bg-red-100 text-red-700" :
-                                                                    "bg-blue-100 text-blue-700"
+                                                        sale.payment === "Cash" ? "bg-green-100 text-green-700" :
+                                                            sale.payment === "Credit" ? "bg-red-100 text-red-700" :
+                                                                "bg-blue-100 text-blue-700"
                                                     )}>
-                                                        {sale.billNumber === 0 ? "Payment Recorded" : (sale.payment === "Cash" ? "Cash Bill" : sale.payment === "Credit" ? "Credit Bill" : sale.payment)}
+                                                        {sale.payment === "Cash" ? "Cash Bill" : sale.payment === "Credit" ? "Credit Bill" : sale.payment}
                                                     </span>
                                                 </TableCell>
                                                 <TableCell className="text-right font-bold text-primary">
@@ -468,7 +507,7 @@ export default function SalesHistoryPage() {
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
-            </main>
+            </main >
         </>
     );
 }
