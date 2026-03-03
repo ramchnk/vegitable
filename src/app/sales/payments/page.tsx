@@ -22,7 +22,7 @@ import { Input } from "@/components/ui/input";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { Check, X, ChevronsUpDown, User, Wallet, Banknote, Scale } from "lucide-react";
+import { Check, X, ChevronsUpDown, User, Wallet, Banknote, Scale, FileText } from "lucide-react";
 import { useTransactions } from "@/context/transaction-provider";
 import { cn } from "@/lib/utils";
 import {
@@ -47,6 +47,7 @@ const transactionFormSchema = z.object({
   partyId: z.string().min(1, "Please select a customer"),
   givenAmount: z.coerce.number().min(0.01, "Amount must be greater than zero"),
   paymentMethod: z.enum(["Cash", "GPay", "NEFT"]),
+  narration: z.string().optional(),
 });
 
 type TransactionFormValues = z.infer<typeof transactionFormSchema>;
@@ -66,6 +67,7 @@ export default function CustomerPaymentsPage() {
       partyId: "",
       givenAmount: undefined,
       paymentMethod: "Cash",
+      narration: "",
     },
   });
 
@@ -100,12 +102,14 @@ export default function CustomerPaymentsPage() {
           selectedPayment.partyName,
           "Customer",
           data.givenAmount,
-          data.paymentMethod
+          data.paymentMethod,
+          data.narration
         );
         form.reset({
           partyId: "",
           givenAmount: undefined,
           paymentMethod: "Cash",
+          narration: "",
         });
         router.push(`/sales/customers/${selectedPayment.partyId}`);
       } catch (error) {
@@ -116,7 +120,10 @@ export default function CustomerPaymentsPage() {
 
   return (
     <>
-      <Header title={t('payments.buyer_title')} backHref="/credits" />
+      <Header
+        title={t('payments.buyer_title')}
+        backHref={watchedPartyId ? `/sales/customers/${watchedPartyId}` : "/sales/customers"}
+      />
       <main className="flex flex-1 flex-col items-center justify-center p-4 md:p-6 bg-gray-50">
         <Card className="w-full max-w-2xl overflow-hidden border-none shadow-lg">
           <div className="bg-[#3730a3] text-white p-4">
@@ -275,7 +282,7 @@ export default function CustomerPaymentsPage() {
                 />
 
                 {/* Closing Balance */}
-                <div className="grid grid-cols-[200px_1fr] items-center border-t border-gray-100 pt-4">
+                <div className="grid grid-cols-[200px_1fr] items-center border-t border-gray-100 pt-4 pb-4 border-b">
                   <Label className="text-base font-bold text-gray-700 flex items-center gap-2">
                     <Scale className="h-4 w-4 text-[#3730a3]" />
                     {t('payments.closing_balance')}
@@ -283,12 +290,36 @@ export default function CustomerPaymentsPage() {
                   <span className="text-xl font-bold">{closingBalance.toFixed(0)}</span>
                 </div>
 
+                {/* Narration */}
+                <FormField
+                  control={form.control}
+                  name="narration"
+                  render={({ field }) => (
+                    <FormItem className="grid grid-cols-[200px_1fr] items-center space-y-0 pt-4">
+                      <FormLabel className="text-base font-bold text-gray-700 flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-[#3730a3]" />
+                        {t('payments.narration')}
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          value={field.value ?? ""}
+                          placeholder={t('payments.narration')}
+                          autoComplete="off"
+                          className="bg-white border-gray-300 h-10 focus-visible:ring-1 focus-visible:ring-blue-400 w-full"
+                        />
+                      </FormControl>
+                      <FormMessage className="col-start-2" />
+                    </FormItem>
+                  )}
+                />
+
                 {/* Actions */}
                 <div className="flex justify-end gap-3 pt-6">
                   <Button type="submit" className="bg-[#4f46e5] hover:bg-[#4338ca] text-white h-11 px-8 font-medium shadow-sm">
                     {t('actions.submit')}
                   </Button>
-                  <Link href="/credits">
+                  <Link href={watchedPartyId ? `/sales/customers/${watchedPartyId}` : "/sales/customers"}>
                     <Button type="button" variant="secondary" className="bg-[#64748b] hover:bg-[#475569] text-white h-11 px-8 font-medium border-none shadow-sm">
                       {t('actions.cancel')}
                     </Button>
@@ -298,7 +329,7 @@ export default function CustomerPaymentsPage() {
             </Form>
           </CardContent>
         </Card>
-      </main>
+      </main >
     </>
   );
 }

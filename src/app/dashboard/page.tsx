@@ -32,10 +32,10 @@ import { useTransactions } from '@/context/transaction-provider';
 import { useLanguage } from '@/context/language-context';
 import { Language } from '@/lib/translations';
 import { useState, useMemo } from 'react';
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, subYears, subWeeks, subMonths } from 'date-fns';
+import { format } from 'date-fns';
 import { DateRange } from 'react-day-picker';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { Calendar as CalendarIcon, Clock } from 'lucide-react';
 
@@ -47,46 +47,14 @@ export default function DashboardPage() {
     from: new Date(),
     to: new Date()
   });
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
   const totalOutstanding = useMemo(() =>
     customerPayments.reduce((acc: number, curr: any) => acc + curr.dueAmount, 0),
     [customerPayments]
   );
 
-  const setPreset = (preset: string) => {
-    const today = new Date();
-    let range: DateRange | undefined;
 
-    switch (preset) {
-      case 'today':
-        range = { from: today, to: today };
-        break;
-      case 'this-week':
-        range = { from: startOfWeek(today, { weekStartsOn: 1 }), to: endOfWeek(today, { weekStartsOn: 1 }) };
-        break;
-      case 'last-week':
-        const lastWeek = subWeeks(today, 1);
-        range = { from: startOfWeek(lastWeek, { weekStartsOn: 1 }), to: endOfWeek(lastWeek, { weekStartsOn: 1 }) };
-        break;
-      case 'this-month':
-        range = { from: startOfMonth(today), to: endOfMonth(today) };
-        break;
-      case 'last-month':
-        const lastMonth = subMonths(today, 1);
-        range = { from: startOfMonth(lastMonth), to: endOfMonth(lastMonth) };
-        break;
-      case 'this-year':
-        range = { from: startOfYear(today), to: endOfYear(today) };
-        break;
-      case 'last-year':
-        const lastYear = subYears(today, 1);
-        range = { from: startOfYear(lastYear), to: endOfYear(lastYear) };
-        break;
-      default:
-        range = undefined;
-    }
-    setDate(range);
-  };
 
   const filteredTransactions = useMemo(() => {
     if (!date?.from) return transactions;
@@ -149,50 +117,39 @@ export default function DashboardPage() {
     <>
       <Header title="Dashboard">
         <div className="flex items-center gap-2">
-          <Popover>
+          <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
             <PopoverTrigger asChild>
               <Button
                 id="date"
                 variant={"outline"}
                 size="sm"
                 className={cn(
-                  "w-[240px] justify-start text-left font-normal",
+                  "w-[240px] justify-start text-left font-normal h-9 bg-white border-muted-foreground/20 hover:border-[#166534]/50 transition-colors",
                   !date && "text-muted-foreground"
                 )}
               >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {date?.from ? (
-                  date.to ? (
-                    <>
-                      {format(date.from, "dd-MM-yyyy")} -{" "}
-                      {format(date.to, "dd-MM-yyyy")}
-                    </>
+                <CalendarIcon className="mr-2 h-4 w-4 text-[#166534]" />
+                <span className="text-sm">
+                  {date?.from ? (
+                    date.to ? (
+                      <>
+                        {format(date.from, "dd-MM-yyyy")} -{" "}
+                        {format(date.to, "dd-MM-yyyy")}
+                      </>
+                    ) : (
+                      format(date.from, "dd-MM-yyyy")
+                    )
                   ) : (
-                    format(date.from, "dd-MM-yyyy")
-                  )
-                ) : (
-                  <span>Pick a date range</span>
-                )}
+                    <span>Pick a date range</span>
+                  )}
+                </span>
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 flex flex-row" align="end">
-              <div className="flex flex-col border-r p-2 bg-muted/20 gap-1 w-32 no-print">
-                <Button variant="ghost" size="sm" className="justify-start font-normal text-xs h-8" onClick={() => setPreset('today')}>{t('date.today')}</Button>
-                <Button variant="ghost" size="sm" className="justify-start font-normal text-xs h-8" onClick={() => setPreset('this-week')}>{t('date.this_week')}</Button>
-                <Button variant="ghost" size="sm" className="justify-start font-normal text-xs h-8" onClick={() => setPreset('last-week')}>{t('date.last_week')}</Button>
-                <Button variant="ghost" size="sm" className="justify-start font-normal text-xs h-8" onClick={() => setPreset('this-month')}>{t('date.this_month')}</Button>
-                <Button variant="ghost" size="sm" className="justify-start font-normal text-xs h-8" onClick={() => setPreset('last-month')}>{t('date.last_month')}</Button>
-                <Button variant="ghost" size="sm" className="justify-start font-normal text-xs h-8" onClick={() => setPreset('this-year')}>{t('date.this_year')}</Button>
-                <Button variant="ghost" size="sm" className="justify-start font-normal text-xs h-8" onClick={() => setPreset('last-year')}>{t('date.last_year')}</Button>
-                <Button variant="ghost" size="sm" className="justify-start font-normal text-xs h-8 text-destructive hover:text-destructive" onClick={() => setDate(undefined)}>{t('date.clear')}</Button>
-              </div>
-              <Calendar
-                initialFocus
-                mode="range"
-                defaultMonth={date?.from}
-                selected={date}
-                onSelect={setDate}
-                numberOfMonths={2}
+            <PopoverContent className="w-auto p-0 border-none shadow-2xl" align="end">
+              <DateRangePicker
+                value={date}
+                onChange={setDate}
+                onApply={() => setIsCalendarOpen(false)}
               />
             </PopoverContent>
           </Popover>

@@ -4,8 +4,10 @@
 import { useState, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { format, startOfToday, endOfToday, startOfWeek, endOfWeek, subWeeks, startOfMonth, endOfMonth, subMonths, startOfYear, endOfYear, subYears } from 'date-fns';
+import { format } from 'date-fns';
+import { createRoot } from 'react-dom/client';
 import { DateRange } from 'react-day-picker';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 import Header from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,29 +17,45 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { useTransactions } from '@/context/transaction-provider';
 import { formatCurrency, cn, downloadCsv } from '@/lib/utils';
-import { Calendar as CalendarIcon, Download, Printer, MessageCircle, ShoppingCart, TrendingUp, TrendingDown, Eye, User, MapPin, Wallet } from 'lucide-react';
+import { Calendar as CalendarIcon, Download, Printer, MessageCircle, ShoppingCart, TrendingUp, TrendingDown, Eye, User, MapPin, Wallet, Trash2, AlertTriangle } from 'lucide-react';
 import {
     Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
+    DialogFooter,
 } from "@/components/ui/dialog";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/context/language-context';
+import { TransactionDialog } from "@/components/transactions/transaction-dialog";
+import { PaymentReceipt } from "@/components/transactions/payment-receipt";
 
 export default function SupplierLedgerPage() {
     const params = useParams();
     const supplierId = params.id as string;
 
-    const { suppliers, transactions, supplierPayments } = useTransactions();
+    const { suppliers, transactions, supplierPayments, deletePayment } = useTransactions();
     const { toast } = useToast();
     const { t } = useLanguage();
 
     const [date, setDate] = useState<DateRange | undefined>();
-    const [tempDate, setTempDate] = useState<DateRange | undefined>();
     const [isPopoverOpen, setIsPopoverOpen] = useState(false);
     const [selectedTransactions, setSelectedTransactions] = useState<any[]>([]);
     const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    const [transactionToDelete, setTransactionToDelete] = useState<any>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false);
 
     const supplier = useMemo(() => suppliers.find(s => s.id === supplierId), [suppliers, supplierId]);
 
@@ -211,10 +229,67 @@ export default function SupplierLedgerPage() {
         window.print();
     }
 
+    const handleReprint = (tx: any) => {
+        const printWindow = window.open('', '_blank', 'width=400,height=600');
+        if (printWindow) {
+            const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
+                .map(node => node.cloneNode(true));
+            styles.forEach(style => printWindow.document.head.appendChild(style));
+
+            const hideHeaderFooterStyle = printWindow.document.createElement('style');
+            hideHeaderFooterStyle.innerHTML = `
+        @page { size: 80mm auto; margin: 0; }
+        body { margin: 0; padding: 0; width: 80mm; }
+        * { box-sizing: border-box; }
+      `;
+            printWindow.document.head.appendChild(hideHeaderFooterStyle);
+            printWindow.document.title = '';
+
+            const container = printWindow.document.createElement('div');
+            printWindow.document.body.appendChild(container);
+            const root = createRoot(container);
+            root.render(
+                <PaymentReceipt
+                    date={new Date(tx.createdAt || tx.date)}
+                    partyName={supplier.name}
+                    partyType="Supplier"
+                    paymentMethod={tx.payment || 'Cash'}
+                    amount={tx.amount}
+                    oldBalance={tx.openingBalance || 0}
+                    currentBalance={tx.closingBalance || 0}
+                />
+            );
+            setTimeout(() => {
+                printWindow.print();
+                printWindow.close();
+            }, 1000);
+        }
+    };
+
+    const handleDeleteClick = (tx: any) => {
+        setTransactionToDelete(tx);
+        setIsDeleteDialogOpen(true);
+    };
+
+    const confirmDelete = async () => {
+        if (!transactionToDelete) return;
+        setIsDeleting(true);
+        try {
+            await deletePayment(transactionToDelete.id, "Supplier", supplierId);
+            setSelectedTransactions(prev => prev.filter(t => t.id !== transactionToDelete.id));
+            setIsDeleteDialogOpen(false);
+            setTransactionToDelete(null);
+        } catch (error) {
+            console.error("Error deleting payment:", error);
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
     return (
         <>
             <Header title="Payment Dues" backHref="/supplier" />
-            <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6 print:p-0">
+            <main className="flex flex-1 flex-col gap-3 p-2 md:gap-4 md:p-4 print:p-0">
                 <div className="hidden print:block mb-8 border-b-2 border-black pb-4 text-left">
                     <h1 className="text-3xl font-black uppercase tracking-tighter">Purchase Account Statement</h1>
                     <p className="text-sm font-bold text-slate-800">OM Saravana Vegetables</p>
@@ -248,98 +323,58 @@ export default function SupplierLedgerPage() {
                                 )}
                             </div>
 
-                            <div className="flex flex-col md:flex-row gap-4 items-end mb-1 no-print">
+                            <div className="flex flex-col md:flex-row gap-2 items-end mb-0 no-print">
                                 <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
                                     <PopoverTrigger asChild>
                                         <Button
                                             id="date"
                                             variant={"outline"}
                                             className={cn(
-                                                "w-full md:w-[300px] justify-start text-left font-normal bg-white",
+                                                "w-full md:w-[250px] justify-start text-left font-normal bg-white h-8 border-muted-foreground/20 hover:border-[#166534]/50 transition-colors",
                                                 !date && "text-muted-foreground"
                                             )}
                                         >
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {date?.from ? (
-                                                date.to ? (
-                                                    <>
-                                                        {format(date.from, "dd-MM-yyyy")} -{" "}
-                                                        {format(date.to, "dd-MM-yyyy")}
-                                                    </>
+                                            <CalendarIcon className="mr-2 h-3.5 w-3.5 text-[#166534]" />
+                                            <span className="text-xs">
+                                                {date?.from ? (
+                                                    date.to ? (
+                                                        <>
+                                                            {format(date.from, "dd/MM/yyyy")} -{" "}
+                                                            {format(date.to, "dd/MM/yyyy")}
+                                                        </>
+                                                    ) : (
+                                                        format(date.from, "dd/MM/yyyy")
+                                                    )
                                                 ) : (
-                                                    format(date.from, "dd-MM-yyyy")
-                                                )
-                                            ) : (
-                                                <span>Pick a date range</span>
-                                            )}
+                                                    <span>{t('date.pick_date_range')}</span>
+                                                )}
+                                            </span>
                                         </Button>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0 flex" align="end">
-                                        <div className="flex flex-col border-r bg-muted/10 min-w-[140px] p-2 gap-1 no-print">
-                                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2 py-2">Presets</span>
-                                            {[
-                                                { label: 'Today', getValue: () => ({ from: startOfToday(), to: endOfToday() }) },
-                                                { label: 'This Week', getValue: () => ({ from: startOfWeek(new Date(), { weekStartsOn: 1 }), to: endOfWeek(new Date(), { weekStartsOn: 1 }) }) },
-                                                { label: 'Last Week', getValue: () => ({ from: startOfWeek(subWeeks(new Date(), 1), { weekStartsOn: 1 }), to: endOfWeek(subWeeks(new Date(), 1), { weekStartsOn: 1 }) }) },
-                                                { label: 'This Month', getValue: () => ({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) }) },
-                                                { label: 'Last Month', getValue: () => ({ from: startOfMonth(subMonths(new Date(), 1)), to: endOfMonth(subMonths(new Date(), 1)) }) },
-                                                { label: 'This Year', getValue: () => ({ from: startOfYear(new Date()), to: endOfYear(new Date()) }) },
-                                                { label: 'Last Year', getValue: () => ({ from: startOfYear(subYears(new Date(), 1)), to: endOfYear(subYears(new Date(), 1)) }) },
-                                            ].map((preset) => (
-                                                <Button
-                                                    key={preset.label}
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="justify-start font-bold text-[#064e3b] hover:bg-primary/10 h-8"
-                                                    onClick={() => {
-                                                        const range = preset.getValue();
-                                                        setTempDate(range);
-                                                    }}
-                                                >
-                                                    {preset.label}
-                                                </Button>
-                                            ))}
-                                        </div>
-                                        <div className="flex flex-col">
-                                            <div className="p-3 border-b flex items-center justify-between bg-muted/20">
-                                                <span className="text-sm font-medium">Select Date Range</span>
-                                                <Button
-                                                    size="sm"
-                                                    className="h-8 px-3"
-                                                    disabled={!tempDate?.from || !tempDate?.to}
-                                                    onClick={() => {
-                                                        setDate(tempDate);
-                                                        setIsPopoverOpen(false);
-                                                    }}
-                                                >
-                                                    Apply
-                                                </Button>
-                                            </div>
-                                            <Calendar
-                                                initialFocus
-                                                mode="range"
-                                                defaultMonth={date?.from}
-                                                selected={tempDate}
-                                                onSelect={setTempDate}
-                                                numberOfMonths={2}
-                                            />
-                                        </div>
+                                    <PopoverContent className="w-auto p-0 border-none shadow-2xl" align="end">
+                                        <DateRangePicker
+                                            value={date}
+                                            onChange={setDate}
+                                            onApply={() => setIsPopoverOpen(false)}
+                                        />
                                     </PopoverContent>
                                 </Popover>
-                                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground min-w-[100px]">Filter</Button>
-                                <Link href={`/purchase/payments?supplierId=${supplierId}`}>
-                                    <Button className="bg-[#4f46e5] hover:bg-[#4338ca] text-white shadow-md font-bold border-none">
-                                        <Wallet className="h-4 w-4 mr-2" />
-                                        {t('payments.supplier_payment')}
-                                    </Button>
-                                </Link>
+
+                                <Button
+                                    size="sm"
+                                    onClick={() => setIsTransactionDialogOpen(true)}
+                                    className="bg-[#4f46e5] hover:bg-[#4338ca] text-white shadow-md font-bold border-none h-8"
+                                >
+                                    <Wallet className="h-3.5 w-3.5 mr-2" />
+                                    {t('payments.supplier_payment')}
+                                </Button>
                             </div>
                         </div>
                     </CardHeader>
-                    <CardContent className="space-y-6 pt-6 print:pt-4">
+                    <CardContent className="space-y-3 pt-3 print:pt-4">
 
 
-                        <Card className="relative overflow-hidden border-none shadow-xl bg-white/20 backdrop-blur-md print:bg-white print:border print:border-black print:shadow-none print:backdrop-blur-none">
+                        <Card className="relative overflow-hidden border border-slate-200 shadow-sm bg-slate-50/30 print:bg-white print:border print:border-black print:shadow-none">
                             {/* Fluid Art Background Decoration */}
                             <div className="absolute inset-0 z-0 opacity-30 select-none pointer-events-none"
                                 style={{
@@ -356,32 +391,32 @@ export default function SupplierLedgerPage() {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="pb-6 relative z-10">
-                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 text-center">
-                                    <div className="bg-white/40 rounded-xl p-3 shadow-sm border border-white/40">
-                                        <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Opening Balance</p>
-                                        <p className="text-2xl font-black text-[#0f172a]">{formatCurrency(openingBalance)}</p>
+                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-center">
+                                    <div className="bg-white rounded-xl p-2 shadow-sm border border-slate-200">
+                                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">Opening Balance</p>
+                                        <p className="text-xl font-black text-slate-900">{formatCurrency(openingBalance)}</p>
                                     </div>
-                                    <div className="bg-white/40 rounded-xl p-3 shadow-sm border border-white/40">
-                                        <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Total Purchases</p>
-                                        <p className="text-2xl font-black text-[#1e40af]">{formatCurrency(totalPurchases)}</p>
+                                    <div className="bg-white rounded-xl p-2 shadow-sm border border-slate-200">
+                                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">Total Purchases</p>
+                                        <p className="text-xl font-black text-slate-900">{formatCurrency(totalPurchases)}</p>
                                     </div>
-                                    <div className="bg-white/40 rounded-xl p-3 shadow-sm border border-white/40">
-                                        <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Total Paid</p>
-                                        <p className="text-2xl font-black text-[#9d174d]">{formatCurrency(totalCredit)}</p>
+                                    <div className="bg-white rounded-xl p-2 shadow-sm border border-slate-200">
+                                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">Total Paid</p>
+                                        <p className="text-xl font-black text-slate-900">{formatCurrency(totalCredit)}</p>
                                     </div>
-                                    <div className="bg-[#0f172a] rounded-xl p-3 shadow-md border border-white/10">
-                                        <p className="text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">Closing Balance</p>
-                                        <p className="text-2xl font-black text-white">{formatCurrency(closingBalance)}</p>
+                                    <div className="bg-slate-900 rounded-xl p-2 shadow-md border border-slate-800">
+                                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Closing Balance</p>
+                                        <p className="text-xl font-black text-white">{formatCurrency(closingBalance)}</p>
                                     </div>
                                 </div>
                             </CardContent>
                         </Card>
 
-                        <div className="flex flex-col md:flex-row justify-between items-center gap-4 no-print">
+                        <div className="flex flex-col md:flex-row justify-between items-center gap-2 no-print">
                             <div className="flex gap-2">
-                                <Button variant="outline" size="icon" onClick={handlePrint}><Printer /></Button>
-                                <Button variant="outline" size="icon" onClick={handleWhatsApp}><MessageCircle /></Button>
-                                <Button variant="outline" onClick={handleExport}><Download className="mr-2 h-4 w-4" /> Download</Button>
+                                <Button variant="outline" size="icon" className="h-8 w-8" onClick={handlePrint}><Printer className="h-4 w-4" /></Button>
+                                <Button variant="outline" size="icon" className="h-8 w-8" onClick={handleWhatsApp}><MessageCircle className="h-4 w-4" /></Button>
+                                <Button variant="outline" size="sm" className="h-8" onClick={handleExport}><Download className="mr-2 h-4 w-4" /> Download</Button>
                             </div>
                         </div>
 
@@ -415,7 +450,24 @@ export default function SupplierLedgerPage() {
                                             <TableRow key={t.id}>
                                                 <TableCell className="print:text-center">{format(new Date(t.date), "dd/MM/yyyy")}</TableCell>
                                                 <TableCell className="text-right font-medium text-muted-foreground print:text-center">{formatCurrency(t.opening)}</TableCell>
-                                                <TableCell className="text-right text-sky-600 font-bold print:text-center">{formatCurrency(t.amount)}</TableCell>
+                                                <TableCell className="text-right text-sky-600 font-bold whitespace-nowrap print:text-center">
+                                                    {t.amount > 0 ? (
+                                                        <div className="flex items-center justify-end gap-2 print:justify-center">
+                                                            <span>{formatCurrency(t.amount)}</span>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-6 w-6 text-sky-600 hover:text-sky-700 hover:bg-sky-50 no-print"
+                                                                onClick={() => {
+                                                                    setSelectedTransactions(t.transactions.filter((tx: any) => tx.type === 'Purchase'));
+                                                                    setIsHistoryDialogOpen(true);
+                                                                }}
+                                                            >
+                                                                <Eye className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
+                                                    ) : formatCurrency(t.amount)}
+                                                </TableCell>
                                                 <TableCell className="text-right text-green-600 font-bold whitespace-nowrap print:text-center">
                                                     {t.credit > 0 ? (
                                                         <div className="flex flex-col items-end gap-1 print:items-center">
@@ -426,14 +478,14 @@ export default function SupplierLedgerPage() {
                                                                     size="icon"
                                                                     className="h-6 w-6 text-green-600 hover:text-green-700 hover:bg-green-50 no-print"
                                                                     onClick={() => {
-                                                                        setSelectedTransactions(t.transactions);
+                                                                        setSelectedTransactions(t.transactions.filter((tx: any) => tx.type === 'Payment'));
                                                                         setIsHistoryDialogOpen(true);
                                                                     }}
                                                                 >
                                                                     <Eye className="h-4 w-4" />
                                                                 </Button>
                                                             </div>
-                                                            <span className="text-[10px] text-muted-foreground font-medium italic">({t.paymentMethods || 'Cash'})</span>
+
                                                         </div>
                                                     ) : '-'}
                                                 </TableCell>
@@ -448,6 +500,15 @@ export default function SupplierLedgerPage() {
                 </Card >
             </main >
 
+            <TransactionDialog
+                open={isTransactionDialogOpen}
+                onOpenChange={setIsTransactionDialogOpen}
+                type="Supplier"
+                partyId={supplierId}
+                partyName={supplier.name}
+                initialDueAmount={closingBalance}
+            />
+
             <Dialog open={isHistoryDialogOpen} onOpenChange={setIsHistoryDialogOpen}>
                 <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                     <DialogHeader>
@@ -461,44 +522,129 @@ export default function SupplierLedgerPage() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Date</TableHead>
-                                    <TableHead>Type</TableHead>
-                                    <TableHead>Item / Note</TableHead>
+                                    {selectedTransactions.every(tx => tx.type === 'Payment') ? (
+                                        <>
+                                            <TableHead>Payment type</TableHead>
+                                            <TableHead>Narration</TableHead>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <TableHead>Bill No</TableHead>
+                                            <TableHead>Bill Type</TableHead>
+                                        </>
+                                    )}
                                     <TableHead className="text-right">Amount</TableHead>
-                                    <TableHead>Method</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {selectedTransactions.sort((a, b) => {
-                                    const timeA = new Date(a.createdAt || a.date).getTime();
-                                    const timeB = new Date(b.createdAt || b.date).getTime();
-                                    return timeB - timeA;
-                                }).map((tx) => (
-                                    <TableRow key={tx.id}>
-                                        <TableCell className="text-xs">
-                                            {format(new Date(tx.createdAt || tx.date), "dd/MM/yyyy HH:mm")}
-                                        </TableCell>
-                                        <TableCell>
-                                            <span className={cn(
-                                                "px-2 py-1 rounded-full text-[10px] font-bold uppercase",
-                                                tx.type === 'Purchase' ? "bg-amber-100 text-amber-700" : "bg-green-100 text-green-700"
-                                            )}>
-                                                {tx.type}
-                                            </span>
-                                        </TableCell>
-                                        <TableCell className="text-xs max-w-[150px] truncate">
-                                            {tx.item || '-'}
-                                        </TableCell>
-                                        <TableCell className="text-right font-bold">
-                                            {formatCurrency(tx.amount)}
-                                        </TableCell>
-                                        <TableCell className="text-xs">
-                                            {tx.payment || 'Cash'}
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
+                                {(() => {
+                                    const isPaymentHistory = selectedTransactions.every(tx => tx.type === 'Payment');
+
+                                    const grouped = selectedTransactions.reduce((acc: any[], curr) => {
+                                        if (curr.type === 'Purchase') {
+                                            const existing = acc.find(t => t.billNumber === curr.billNumber && t.type === 'Purchase');
+                                            if (existing) {
+                                                existing.amount += curr.amount;
+                                                return acc;
+                                            }
+                                        }
+                                        acc.push({ ...curr });
+                                        return acc;
+                                    }, []);
+
+                                    return grouped.sort((a, b) => {
+                                        const timeA = new Date(a.createdAt || a.date).getTime();
+                                        const timeB = new Date(b.createdAt || b.date).getTime();
+                                        return timeB - timeA;
+                                    }).map((tx) => (
+                                        <TableRow key={tx.id}>
+                                            <TableCell className="text-xs">
+                                                {format(new Date(tx.createdAt || tx.date), "dd/MM/yyyy HH:mm")}
+                                            </TableCell>
+                                            {isPaymentHistory ? (
+                                                <>
+                                                    <TableCell className="text-xs font-medium">
+                                                        {tx.payment || 'Cash'}
+                                                    </TableCell>
+                                                    <TableCell className="text-xs truncate max-w-[150px]">
+                                                        {tx.narration || tx.item || '-'}
+                                                    </TableCell>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <TableCell className="text-xs font-medium">
+                                                        {tx.billNumber ? `#${tx.billNumber}` : '-'}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <span className={cn(
+                                                            "px-2 py-1 rounded-full text-[10px] font-bold uppercase",
+                                                            tx.type === 'Purchase' ? "bg-amber-100 text-amber-700" : "bg-green-100 text-green-700"
+                                                        )}>
+                                                            {tx.type === 'Purchase' ? tx.payment : tx.type}
+                                                        </span>
+                                                    </TableCell>
+                                                </>
+                                            )}
+                                            <TableCell className="text-right font-bold">
+                                                {formatCurrency(tx.amount)}
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                <div className="flex justify-end gap-1">
+                                                    {tx.type === 'Payment' && (
+                                                        <>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                                                onClick={() => handleReprint(tx)}
+                                                            >
+                                                                <Printer className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-destructive hover:text-destructive/90 hover:bg-destructive/10"
+                                                                onClick={() => handleDeleteClick(tx)}
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    ));
+                                })()}
                             </TableBody>
                         </Table>
                     </div>
+
+                    <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                        <AlertDialogContent className="z-[100]">
+                            <AlertDialogHeader>
+                                <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+                                    <AlertTriangle className="h-5 w-5" />
+                                    Confirm Deletion
+                                </AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Are you sure you want to delete this payment of <strong>{transactionToDelete ? formatCurrency(transactionToDelete.amount) : ''}</strong>? This action will update the supplier's balance and cannot be undone.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        confirmDelete();
+                                    }}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    disabled={isDeleting}
+                                >
+                                    {isDeleting ? "Deleting..." : "Delete Payment"}
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
                 </DialogContent>
             </Dialog>
         </>

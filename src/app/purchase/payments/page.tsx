@@ -22,7 +22,7 @@ import { Input } from "@/components/ui/input";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { Check, X, ChevronsUpDown, User, Wallet, Banknote, Scale } from "lucide-react";
+import { Check, X, ChevronsUpDown, User, Wallet, Banknote, Scale, FileText } from "lucide-react";
 import { useTransactions } from "@/context/transaction-provider";
 import { cn } from "@/lib/utils";
 import {
@@ -47,6 +47,7 @@ const transactionFormSchema = z.object({
     partyId: z.string().min(1, "Please select a supplier"),
     givenAmount: z.coerce.number().min(0.01, "Amount must be greater than zero"),
     paymentMethod: z.enum(["Cash", "GPay", "NEFT"]),
+    narration: z.string().optional(),
 });
 
 type TransactionFormValues = z.infer<typeof transactionFormSchema>;
@@ -66,6 +67,7 @@ export default function SupplierPaymentsPage() {
             partyId: "",
             givenAmount: undefined,
             paymentMethod: "Cash",
+            narration: "",
         },
     });
 
@@ -97,12 +99,14 @@ export default function SupplierPaymentsPage() {
                     selectedPayment.partyName,
                     "Supplier",
                     data.givenAmount,
-                    data.paymentMethod
+                    data.paymentMethod,
+                    data.narration
                 );
                 form.reset({
                     partyId: "",
                     givenAmount: undefined,
                     paymentMethod: "Cash",
+                    narration: "",
                 });
                 router.push(`/supplier/${selectedPayment.partyId}`);
             } catch (error) {
@@ -113,7 +117,10 @@ export default function SupplierPaymentsPage() {
 
     return (
         <>
-            <Header title={t('payments.supplier_title')} backHref="/credits" />
+            <Header
+                title={t('payments.supplier_title')}
+                backHref={watchedPartyId ? `/supplier/${watchedPartyId}` : "/supplier"}
+            />
             <main className="flex flex-1 flex-col items-center justify-center p-4 md:p-6 bg-gray-50">
                 <Card className="w-full max-w-2xl overflow-hidden border-none shadow-lg">
                     <div className="bg-[#166534] text-white p-4">
@@ -260,7 +267,7 @@ export default function SupplierPaymentsPage() {
                                                                         if (checked) methodField.onChange("NEFT");
                                                                     }}
                                                                 />
-                                                                <Label htmlFor="neft" className="text-sm font-medium cursor-pointer">NEFT</Label>
+                                                                <Label htmlFor="neft" className="text-sm font-medium cursor-pointer">{t('forms.neft')}</Label>
                                                             </div>
                                                         </div>
                                                     )}
@@ -272,7 +279,7 @@ export default function SupplierPaymentsPage() {
                                 />
 
                                 {/* Closing Balance */}
-                                <div className="grid grid-cols-[200px_1fr] items-center border-t border-gray-100 pt-4">
+                                <div className="grid grid-cols-[200px_1fr] items-center border-t border-gray-100 pt-4 pb-4 border-b">
                                     <Label className="text-base font-bold text-gray-700 flex items-center gap-2">
                                         <Scale className="h-4 w-4 text-[#166534]" />
                                         {t('payments.closing_balance')}
@@ -280,12 +287,36 @@ export default function SupplierPaymentsPage() {
                                     <span className="text-xl font-bold">{closingBalance.toFixed(0)}</span>
                                 </div>
 
+                                {/* Narration */}
+                                <FormField
+                                    control={form.control}
+                                    name="narration"
+                                    render={({ field }) => (
+                                        <FormItem className="grid grid-cols-[200px_1fr] items-center space-y-0 pt-4">
+                                            <FormLabel className="text-base font-bold text-gray-700 flex items-center gap-2">
+                                                <FileText className="h-4 w-4 text-[#166534]" />
+                                                {t('payments.narration')}
+                                            </FormLabel>
+                                            <FormControl>
+                                                <Input
+                                                    {...field}
+                                                    value={field.value ?? ""}
+                                                    placeholder={t('payments.narration')}
+                                                    autoComplete="off"
+                                                    className="bg-white border-gray-300 h-10 focus-visible:ring-1 focus-visible:ring-blue-400 w-full"
+                                                />
+                                            </FormControl>
+                                            <FormMessage className="col-start-2" />
+                                        </FormItem>
+                                    )}
+                                />
+
                                 {/* Actions */}
                                 <div className="flex justify-end gap-3 pt-6">
                                     <Button type="submit" className="bg-[#16a34a] hover:bg-[#15803d] text-white h-11 px-8 font-medium shadow-sm">
                                         {t('actions.submit')}
                                     </Button>
-                                    <Link href="/credits">
+                                    <Link href={watchedPartyId ? `/supplier/${watchedPartyId}` : "/supplier"}>
                                         <Button type="button" variant="secondary" className="bg-[#64748b] hover:bg-[#475569] text-white h-11 px-8 font-medium border-none shadow-sm">
                                             {t('actions.cancel')}
                                         </Button>
@@ -295,7 +326,7 @@ export default function SupplierPaymentsPage() {
                         </Form>
                     </CardContent>
                 </Card>
-            </main>
+            </main >
         </>
     );
 }

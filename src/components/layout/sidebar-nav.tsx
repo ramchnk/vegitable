@@ -8,8 +8,12 @@ import {
     SidebarFooter,
     SidebarHeader,
     SidebarMenu,
+    SidebarMenuAction,
     SidebarMenuButton,
     SidebarMenuItem,
+    SidebarMenuSub,
+    SidebarMenuSubButton,
+    SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
 import {
     Avatar,
@@ -17,6 +21,11 @@ import {
     AvatarImage,
 } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from "@/components/ui/collapsible"
 import {
     Leaf,
     LineChart,
@@ -27,6 +36,7 @@ import {
     Users,
     User,
     Package,
+    ChevronRight,
 } from "lucide-react";
 
 
@@ -39,6 +49,7 @@ const menuItems = [
     { href: '/products', labelKey: 'nav.products', icon: Package, key: 'products' },
     { href: '/supplier', labelKey: 'nav.suppliers', icon: Users, key: 'suppliers' },
     { href: '/sales/customers', labelKey: 'nav.customers', icon: User, key: 'customers' },
+    { href: '/sales/reports/transactions', labelKey: 'nav.reports', icon: LineChart, key: 'reports' },
     { href: '/login', labelKey: 'nav.logout', icon: LogOut, key: 'logout' },
 ]
 
@@ -47,16 +58,17 @@ export function SidebarNav() {
     const { t, language } = useLanguage();
 
     const getIsActive = (href: string, currentPathname: string) => {
-        if (href === '/dashboard') {
+        if (href === '/dashboard' || href === '/') {
             return currentPathname === '/dashboard' || currentPathname === '/';
         }
         if (href === '#' || href === '/login') {
             return false;
         }
-        if (href === '/sales' && (currentPathname.startsWith('/sales/customers') || currentPathname.startsWith('/sales/payments'))) {
+        // Special case for sales: don't highlight sales if we're in specific sub-pages
+        if (href === '/sales' && (currentPathname.startsWith('/sales/customers') || currentPathname.startsWith('/sales/reports') || currentPathname.startsWith('/sales/payments'))) {
             return false;
         }
-        return currentPathname.startsWith(href);
+        return currentPathname === href || currentPathname.startsWith(href + '/');
     }
 
     return (

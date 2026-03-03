@@ -72,7 +72,11 @@ export default function ProductsPage() {
   };
 
   const handleExport = () => {
-    downloadCsv(products, 'items.csv');
+    const exportData = products.map(product => ({
+      [t('products.item_code')]: product.itemCode,
+      [t('products.item_name')]: product.name
+    }));
+    downloadCsv(exportData, 'items.csv');
   }
 
   const handleEdit = (product: any) => {

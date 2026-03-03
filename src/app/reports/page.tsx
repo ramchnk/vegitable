@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { format } from "date-fns";
 import { DateRange } from "react-day-picker";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 import Header from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,7 +30,6 @@ import {
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarIcon, Filter, Download } from "lucide-react";
-import { DatePickerCustom } from "@/components/ui/custom-date-picker";
 import { downloadCsv, formatCurrency, cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { useTransactions } from "@/context/transaction-provider";
@@ -121,31 +121,32 @@ export default function ReportsPage() {
                     id="date"
                     variant={"outline"}
                     className={cn(
-                      "w-full md:w-[300px] justify-start text-left font-normal",
+                      "w-full md:w-[300px] justify-start text-left font-normal bg-white h-10 border-muted-foreground/20 hover:border-[#166534]/50 transition-colors",
                       !date && "text-muted-foreground"
                     )}
                   >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {date?.from ? (
-                      date.to ? (
-                        <>
-                          {format(date.from, "LLL dd, y")} -{" "}
-                          {format(date.to, "LLL dd, y")}
-                        </>
+                    <CalendarIcon className="mr-2 h-4 w-4 text-[#166534]" />
+                    <span className="text-sm">
+                      {date?.from ? (
+                        date.to ? (
+                          <>
+                            {format(date.from, "dd/MM/yyyy")} -{" "}
+                            {format(date.to, "dd/MM/yyyy")}
+                          </>
+                        ) : (
+                          format(date.from, "dd/MM/yyyy")
+                        )
                       ) : (
-                        format(date.from, "LLL dd, y")
-                      )
-                    ) : (
-                      <span>{t('date.pick_date_range')}</span>
-                    )}
+                        <span>{t('date.pick_date_range')}</span>
+                      )}
+                    </span>
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 border-none shadow-none bg-transparent" align="start">
-                  <DatePickerCustom
-                    mode="range"
-                    selected={date}
-                    onRangeSelect={setDate}
-                    onClose={() => setIsCalendarOpen(false)}
+                <PopoverContent className="w-auto p-0 border-none shadow-2xl" align="start">
+                  <DateRangePicker
+                    value={date}
+                    onChange={setDate}
+                    onApply={() => setIsCalendarOpen(false)}
                   />
                 </PopoverContent>
               </Popover>

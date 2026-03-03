@@ -72,6 +72,7 @@ export type Transaction = {
     credit?: number;
     openingBalance?: number;
     closingBalance?: number;
+    narration?: string;
     createdAt?: string;
 }
 

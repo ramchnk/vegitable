@@ -37,6 +37,7 @@ export const translations = {
             thermal_receipt: 'Thermal Receipt',
             a5_print_out: 'A5 Print Out',
             submit: 'Submit',
+            save_and_print: 'Save & Print',
         },
         // Dashboard
         dashboard: {
@@ -98,8 +99,10 @@ export const translations = {
             no_customer_found: 'No customer found.',
             no_item_found: 'No item found.',
             pick_date: 'Pick a date',
+            contact: 'Contact',
+            address: 'Address',
             gpay: 'GPay',
-            neft: 'NEFT',
+            neft: 'Card/Bank',
             submit_intake: 'Submit',
             submit_sales: 'Submit Sales',
             log_intake_title: 'New Purchase Entry',
@@ -143,6 +146,7 @@ export const translations = {
             customer_payment: 'Customer Payment',
             supplier_payment: 'Supplier Payment',
             cash: 'CASH',
+            narration: 'Narration',
             save_transaction: 'Save Transaction',
         },
         // Reports
@@ -155,6 +159,12 @@ export const translations = {
             all_parties: 'All Parties',
             all_types: 'All Types',
             generate_btn: 'Generate',
+            sales_transaction_report: 'Sales Transaction Report',
+            total_sales_amount: 'Total Sales Amount',
+            total_paid_amount: 'Total Paid Amount',
+            total_balance_amount: 'Total Balance Amount',
+            from_date: 'From Date',
+            to_date: 'To Date',
         },
         // Daily Accounts / Settings
         accounts: {
@@ -260,6 +270,7 @@ export const translations = {
             thermal_receipt: 'தெர்மல் ரசீது',
             a5_print_out: 'A5 அச்சுப் பிரதி',
             submit: 'சமர்ப்பி',
+            save_and_print: 'சேமி மற்றும் அச்சிடு',
         },
         // Dashboard
         dashboard: {
@@ -322,8 +333,10 @@ export const translations = {
             no_customer_found: 'வாடிக்கையாளர் யாரும் இல்லை.',
             no_item_found: 'பொருட்கள் எதுவும் இல்லை.',
             pick_date: 'தேதியைத் தேர்ந்தெடுக்கவும்',
+            contact: 'தொடர்பு எண்',
+            address: 'முகவரி',
             gpay: 'GPay',
-            neft: 'NEFT',
+            neft: 'Card/Bank',
             submit_intake: 'சமர்ப்பி',
             submit_sales: 'விற்பனையைச் சமர்ப்பிக்கவும்',
             log_intake_title: 'புதிய கொள்முதல் பதிவு',
@@ -366,6 +379,7 @@ export const translations = {
             customer_payment: 'வாடிக்கையாளர் பணம் செலுத்துதல்',
             supplier_payment: 'சப்ளையர் பணம் செலுத்துதல்',
             cash: 'ரொக்கம்',
+            narration: 'விளக்கம்',
             save_transaction: 'பரிவர்த்தனையைச் சேமி',
         },
         // Reports
@@ -378,6 +392,12 @@ export const translations = {
             all_parties: 'அனைத்து தரப்பினரும்',
             all_types: 'எல்லாவகைகளும்',
             generate_btn: 'உருவாக்கு',
+            sales_transaction_report: 'விற்பனை பரிவர்த்தனை அறிக்கை',
+            total_sales_amount: 'மொத்த விற்பனை தொகை',
+            total_paid_amount: 'மொத்த செலுத்தப்பட்ட தொகை',
+            total_balance_amount: 'மொத்த மீதமுள்ள தொகை',
+            from_date: 'தொடக்க தேதி',
+            to_date: 'முடிவு தேதி',
         },
         // Daily Accounts / Settings
         accounts: {

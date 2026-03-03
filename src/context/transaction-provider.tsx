@@ -15,7 +15,7 @@ interface TransactionContextType {
     transactions: Transaction[];
     addTransaction: (
         transactions: Omit<Transaction, 'id'>[],
-        partyDetails: { name: string; contact: string; address: string },
+        partyDetails: { name: string; contact: string; address: string; id?: string },
         amountPaidOverride?: number
     ) => void;
     supplierPayments: PaymentDetail[];
@@ -35,7 +35,8 @@ interface TransactionContextType {
         partyName: string,
         partyType: "Supplier" | "Customer",
         amount: number,
-        paymentMethod?: string
+        paymentMethod?: string,
+        narration?: string
     ) => Promise<void>;
     products: Product[];
     addProduct: (product: Omit<Product, 'id'>) => Promise<void>;
@@ -43,6 +44,7 @@ interface TransactionContextType {
     deleteProduct: (id: string, silent?: boolean) => Promise<void>;
     deleteCustomer: (id: string, silent?: boolean) => Promise<void>;
     deleteSupplier: (id: string, silent?: boolean) => Promise<void>;
+    deletePayment: (transactionId: string, partyType: "Customer" | "Supplier", partyId: string) => Promise<void>;
     loading: boolean;
 }
 
@@ -221,7 +223,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
 
     const addTransaction = (
         newTransactions: Omit<Transaction, 'id'>[],
-        partyDetails: { name: string; contact: string; address: string },
+        partyDetails: { name: string; contact: string; address: string; id?: string },
         amountPaidOverride?: number
     ): Promise<number | void> => {
         if (!firestore || newTransactions.length === 0) return Promise.resolve();
@@ -248,14 +250,18 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
         let amountPaid_calc = 0;
 
         if (transactionType === 'Sale') {
-            const customer = customers.find(c => c.name?.toLowerCase() === partyName?.toLowerCase());
+            const customer = partyDetails.id
+                ? customers.find(c => c.id === partyDetails.id)
+                : customers.find(c => c.name?.toLowerCase() === partyName?.toLowerCase());
             const isWalkIn = customer?.code === "000";
             const existingPayment = customer ? customerPayments.find(p => p.partyId === customer.id) : undefined;
             openingBalance = isWalkIn ? 0 : (existingPayment?.dueAmount || 0);
             amountPaid_calc = isWalkIn ? totalAmount : (amountPaidOverride !== undefined ? amountPaidOverride : (paymentMethod !== 'Credit' ? totalAmount : 0));
             closingBalance = isWalkIn ? 0 : (openingBalance + totalAmount - amountPaid_calc);
         } else {
-            const supplier = suppliers.find(s => s.name?.toLowerCase() === partyName?.toLowerCase());
+            const supplier = partyDetails.id
+                ? suppliers.find(s => s.id === partyDetails.id)
+                : suppliers.find(s => s.name?.toLowerCase() === partyName?.toLowerCase());
             const existingPayment = supplier ? supplierPayments.find(p => p.partyId === supplier.id) : undefined;
             openingBalance = existingPayment?.dueAmount || 0;
             amountPaid_calc = amountPaidOverride !== undefined ? amountPaidOverride : (paymentMethod !== 'Credit' ? totalAmount : 0);
@@ -274,16 +280,20 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
         });
 
         if (transactionType === 'Sale') {
-            let customer = customers.find(c => c.name?.toLowerCase() === partyName?.toLowerCase());
-            let customerId: string;
+            let customerId = partyDetails.id;
+            let customer = customerId
+                ? customers.find(c => c.id === customerId)
+                : customers.find(c => c.name?.toLowerCase() === partyName?.toLowerCase());
 
-            if (!customer) {
+            if (!customer && !customerId) {
                 const newCustomerRef = doc(collection(firestore, 'customers'));
                 customerId = newCustomerRef.id;
                 batch.set(newCustomerRef, { ...partyDetails, id: customerId });
-            } else {
+            } else if (customer) {
                 customerId = customer.id;
             }
+
+            if (!customerId) return Promise.resolve(); // Should not happen
 
             const paymentRef = doc(firestore, 'customerPayments', customerId);
             const existingPayment = customerPayments.find(p => p.partyId === customerId);
@@ -331,16 +341,20 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
                 });
             }
         } else { // Purchase
-            let supplier = suppliers.find(s => s.name?.toLowerCase() === partyName?.toLowerCase());
-            let supplierId: string;
+            let supplierId = partyDetails.id;
+            let supplier = supplierId
+                ? suppliers.find(s => s.id === supplierId)
+                : suppliers.find(s => s.name?.toLowerCase() === partyName?.toLowerCase());
 
-            if (!supplier) {
+            if (!supplier && !supplierId) {
                 const newSupplierRef = doc(collection(firestore, 'suppliers'));
                 supplierId = newSupplierRef.id;
                 batch.set(newSupplierRef, { ...partyDetails, id: supplierId });
-            } else {
+            } else if (supplier) {
                 supplierId = supplier.id;
             }
+
+            if (!supplierId) return Promise.resolve(); // Should not happen
 
             const paymentRef = doc(firestore, 'supplierPayments', supplierId);
             const existingPayment = supplierPayments.find(p => p.partyId === supplierId);
@@ -500,13 +514,13 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
             errorEmitter.emit('permission-error', permissionError);
         });
     };
-
     const addPayment = async (
         partyId: string,
         partyName: string,
         partyType: "Supplier" | "Customer",
         amount: number,
-        paymentMethod: string = "Cash"
+        paymentMethod: string = "Cash",
+        narration: string = ""
     ) => {
         if (!firestore || !user) return;
 
@@ -516,6 +530,11 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
 
         // 1. Create Transaction Record
         const transRef = doc(collection(firestore, 'transactions'));
+        // Calculate balances
+        const existingSummary = (partyType === "Supplier" ? supplierPayments : customerPayments).find(p => p.partyId === partyId);
+        const openingBalance = existingSummary?.dueAmount || 0;
+        const closingBalance = openingBalance - amount;
+
         const transaction: Transaction = {
             id: transRef.id,
             date: dateStr,
@@ -524,8 +543,11 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
             item: "Payment Received/Given",
             amount: amount,
             payment: paymentMethod,
-            credit: partyType === "Supplier" ? amount : 0, // Supplier payment is credit (reducing our debt)
-            debit: partyType === "Customer" ? amount : 0,  // Customer payment is debit (reducing their debt)
+            narration: narration,
+            credit: partyType === "Supplier" ? amount : 0,
+            debit: partyType === "Customer" ? amount : 0,
+            openingBalance,
+            closingBalance,
             createdAt: currentISO
         };
         batch.set(transRef, transaction);
@@ -625,7 +647,46 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
         }
     }
 
-    const value: TransactionContextType = { transactions, addTransaction, supplierPayments, customerPayments, updateSupplierPayment, updateCustomerPayment, suppliers, addSupplier, updateSupplier, customers, addCustomer, updateCustomer, deleteCustomer, deleteSupplier, dailySummaries, saveDailySummary, addPayment, products, addProduct, updateProduct, deleteProduct, loading };
+    const deletePayment = async (transactionId: string, partyType: "Customer" | "Supplier", partyId: string) => {
+        if (!firestore || !user) return;
+
+        const transaction = transactions.find(t => t.id === transactionId);
+        if (!transaction) {
+            toast({ title: 'Error', description: 'Transaction not found.', variant: 'destructive' });
+            return;
+        }
+
+        const batch = writeBatch(firestore);
+        const amount = transaction.amount;
+
+        // 1. Update Payment Summary
+        const collectionName = partyType === "Supplier" ? "supplierPayments" : "customerPayments";
+        const paymentRef = doc(firestore, collectionName, partyId);
+        const existingPayment = (partyType === "Supplier" ? supplierPayments : customerPayments).find(p => p.partyId === partyId);
+
+        if (existingPayment) {
+            batch.update(paymentRef, {
+                paidAmount: existingPayment.paidAmount - amount,
+                dueAmount: existingPayment.dueAmount + amount
+            });
+        }
+
+        // 2. Delete Transaction Record
+        const transRef = doc(firestore, 'transactions', transactionId);
+        batch.delete(transRef);
+
+        try {
+            await batch.commit();
+            toast({ title: 'Success', description: 'Payment deleted successfully.' });
+        } catch (e) {
+            console.error("Error deleting payment:", e);
+            toast({ title: 'Error', description: 'Failed to delete payment.', variant: 'destructive' });
+            const permissionError = new FirestorePermissionError({ path: 'batch-write', operation: 'write' });
+            errorEmitter.emit('permission-error', permissionError);
+        }
+    };
+
+    const value: TransactionContextType = { transactions, addTransaction, supplierPayments, customerPayments, updateSupplierPayment, updateCustomerPayment, suppliers, addSupplier, updateSupplier, customers, addCustomer, updateCustomer, deleteCustomer, deleteSupplier, deletePayment, dailySummaries, saveDailySummary, addPayment, products, addProduct, updateProduct, deleteProduct, loading };
 
     return (
         <TransactionContext.Provider value={value}>

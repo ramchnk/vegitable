@@ -271,7 +271,12 @@ export default function SalesHistoryPage() {
             styles.forEach(style => printWindow.document.head.appendChild(style));
 
             const hideHeaderFooterStyle = printWindow.document.createElement('style');
-            hideHeaderFooterStyle.innerHTML = '@page { margin: 0; } body { margin: 0; }';
+            hideHeaderFooterStyle.innerHTML = `
+                @page { size: A5; margin: 0; }
+                @media print {
+                    body { margin: 0; padding: 0; }
+                }
+            `;
             printWindow.document.head.appendChild(hideHeaderFooterStyle);
             printWindow.document.title = '';
 

@@ -76,6 +76,7 @@ const saleItemSchema = z.object({
 
 const salesFormSchema = z.object({
   customerId: z.string().min(1, "Customer is required."),
+  customCustomerName: z.string().optional(),
   salesDate: z.date(),
   items: z.array(saleItemSchema).min(1, "At least one item is required."),
   amountPaid: z.coerce.number().min(0, "Amount paid cannot be negative."),
@@ -92,12 +93,14 @@ export default function SalesPage() {
   const { t } = useLanguage();
   const [outstanding, setOutstanding] = useState(0);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [isCustomerPopoverOpen, setIsCustomerPopoverOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const creatingRef = useRef(false);
 
   const dateTriggerRef = useRef<HTMLButtonElement>(null);
   const customerTriggerRef = useRef<HTMLButtonElement>(null);
   const itemTypeTriggerRef = useRef<HTMLButtonElement>(null);
+  const customNameRef = useRef<HTMLInputElement>(null);
   const weightRef = useRef<HTMLInputElement>(null);
   const priceRef = useRef<HTMLInputElement>(null);
 
@@ -105,6 +108,7 @@ export default function SalesPage() {
     resolver: zodResolver(salesFormSchema),
     defaultValues: {
       customerId: "",
+      customCustomerName: "",
       salesDate: new Date(),
       items: [],
       amountPaid: "" as any,
@@ -134,6 +138,7 @@ export default function SalesPage() {
   const watchedAmountPaid = form.watch("amountPaid");
   const watchedSalesDate = form.watch("salesDate");
   const watchedPaymentType = form.watch("paymentType");
+  const watchedCustomCustomerName = form.watch("customCustomerName");
 
   useEffect(() => {
     if (loading) return;
@@ -216,9 +221,12 @@ export default function SalesPage() {
 
     const newTransactions = data.items.map(item => {
       const product = products.find(p => p.id === item.itemId);
+      const isWalkIn = customer?.name?.toLowerCase() === "walk-in customer";
+      const partyName = (isWalkIn && data.customCustomerName) ? data.customCustomerName : customer.name;
+
       return {
         date: format(data.salesDate, 'yyyy-MM-dd'),
-        party: customer.name,
+        party: partyName,
         type: 'Sale' as const,
         item: product?.name || 'Unknown Item',
         amount: item.price * item.quantity,
@@ -230,9 +238,12 @@ export default function SalesPage() {
 
     try {
       const preSaveBalance = outstanding;
+      const isWalkIn = customer?.name?.toLowerCase() === "walk-in customer";
+      const partyName = (isWalkIn && data.customCustomerName) ? data.customCustomerName : customer.name;
+
       const billNo = await addTransaction(
         newTransactions,
-        { name: customer.name, contact: customer.contact, address: customer.address },
+        { id: data.customerId, name: partyName, contact: customer.contact, address: customer.address },
         finalAmountPaid
       );
 
@@ -246,6 +257,7 @@ export default function SalesPage() {
       }
       form.reset({
         customerId: customers.find(c => c.name?.toLowerCase() === "walk-in customer")?.id || "",
+        customCustomerName: "",
         salesDate: new Date(),
         items: [],
         amountPaid: "" as any,
@@ -262,6 +274,7 @@ export default function SalesPage() {
   const clearBill = () => {
     form.reset({
       customerId: "",
+      customCustomerName: "",
       salesDate: new Date(),
       items: [],
       amountPaid: "" as any,
@@ -384,6 +397,8 @@ export default function SalesPage() {
     const paymentType = form.getValues("paymentType");
     const manualAmountPaid = form.getValues("amountPaid") || 0;
     const isWalkIn = customer?.name?.toLowerCase() === "walk-in customer";
+    const customName = form.getValues("customCustomerName");
+    const displayCustomerName = (isWalkIn && customName) ? customName : customer?.name;
 
     const totalAmount = items.reduce((sum, item) => sum + item.total, 0);
     const totalItems = items.length;
@@ -399,7 +414,11 @@ export default function SalesPage() {
       styles.forEach(style => printWindow.document.head.appendChild(style));
 
       const hideHeaderFooterStyle = printWindow.document.createElement('style');
-      hideHeaderFooterStyle.innerHTML = '@page { margin: 0; } body { margin: 0; }';
+      hideHeaderFooterStyle.innerHTML = `
+        @page { size: 80mm auto; margin: 0; }
+        body { margin: 0; padding: 0; width: 80mm; }
+        * { box-sizing: border-box; }
+      `;
       printWindow.document.head.appendChild(hideHeaderFooterStyle);
       printWindow.document.title = '';
 
@@ -410,7 +429,7 @@ export default function SalesPage() {
         <ThermalPrint
           billNo={billNo}
           date={date}
-          customerName={customer?.name}
+          customerName={displayCustomerName}
           customerAddress={customer.address}
           customerPhone={customer.contact}
           paymentType={paymentType}
@@ -463,6 +482,8 @@ export default function SalesPage() {
     const paymentType = form.getValues("paymentType");
     const manualAmountPaid = form.getValues("amountPaid") || 0;
     const isWalkIn = customer?.name?.toLowerCase() === "walk-in customer";
+    const customName = form.getValues("customCustomerName");
+    const displayCustomerName = (isWalkIn && customName) ? customName : customer?.name;
 
     const totalAmount = items.reduce((sum, item) => sum + item.total, 0);
     const oldBalance = forcedOldBalance !== undefined ? forcedOldBalance : outstanding;
@@ -476,7 +497,12 @@ export default function SalesPage() {
       styles.forEach(style => printWindow.document.head.appendChild(style));
 
       const hideHeaderFooterStyle = printWindow.document.createElement('style');
-      hideHeaderFooterStyle.innerHTML = '@page { margin: 0; } body { margin: 0; }';
+      hideHeaderFooterStyle.innerHTML = `
+                @page { size: A5; margin: 0; }
+                @media print {
+                    body { margin: 0; padding: 0; }
+                }
+            `;
       printWindow.document.head.appendChild(hideHeaderFooterStyle);
       printWindow.document.title = '';
 
@@ -487,7 +513,7 @@ export default function SalesPage() {
         <A5Print
           billNo={billNo}
           date={date}
-          customerName={customer?.name}
+          customerName={displayCustomerName}
           customerAddress={customer.address}
           customerPhone={customer.contact}
           paymentType={paymentType}
@@ -529,11 +555,23 @@ export default function SalesPage() {
           form.handleSubmit((data) => onSubmit(data, 'a5'))();
         }
       }
+
+      // Enter key to open customer search on landing
+      if (e.key === "Enter" && !isCustomerPopoverOpen && !isCalendarOpen && !openCombobox) {
+        // Only trigger if no input is focused or the body is focused
+        const activeEl = document.activeElement;
+        const isInputFocused = activeEl instanceof HTMLInputElement || activeEl instanceof HTMLTextAreaElement || activeEl?.getAttribute('role') === 'combobox';
+
+        if (!isInputFocused || activeEl === document.body) {
+          e.preventDefault();
+          setIsCustomerPopoverOpen(true);
+        }
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isSubmitting, watchedItems, form, onSubmit]);
+  }, [isSubmitting, watchedItems, form, onSubmit, isCustomerPopoverOpen, isCalendarOpen, openCombobox]);
 
   return (
     <>
@@ -568,33 +606,18 @@ export default function SalesPage() {
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
                         <FormLabel className="font-semibold text-primary">{t('forms.sales_date')}</FormLabel>
-                        <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                ref={dateTriggerRef}
-                                variant={"outline"}
-                                className={cn(
-                                  "w-full pl-3 text-left font-normal h-10",
-                                  !field.value && "text-muted-foreground"
-                                )}
-                              >
-                                {field.value ? format(field.value, "PPP") : <span>{t('date.pick_date')}</span>}
-                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0 border-none shadow-none bg-transparent" align="start">
-                            <DatePickerCustom
-                              selected={field.value}
-                              onSelect={(date) => {
-                                field.onChange(date);
-                                if (date) setTimeout(() => itemTypeTriggerRef.current?.focus(), 0);
-                              }}
-                              onClose={() => setIsCalendarOpen(false)}
-                            />
-                          </PopoverContent>
-                        </Popover>
+                        <FormControl>
+                          <Button
+                            variant={"outline"}
+                            className={cn(
+                              "w-full pl-3 text-left font-normal h-10 cursor-default bg-muted hover:bg-muted"
+                            )}
+                            disabled
+                          >
+                            {field.value ? format(field.value, "PPP") : format(new Date(), "PPP")}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -649,14 +672,26 @@ export default function SalesPage() {
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
                         <FormLabel className="font-semibold text-primary">{t('forms.customer')}</FormLabel>
-                        <Popover>
+                        <Popover open={isCustomerPopoverOpen} onOpenChange={setIsCustomerPopoverOpen}>
                           <PopoverTrigger asChild>
                             <FormControl>
                               <Button
                                 ref={customerTriggerRef}
+                                type="button"
                                 variant="outline"
                                 role="combobox"
                                 className="w-full justify-between h-10 !text-[#064e3b] !font-bold"
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    if (isWalkIn) {
+                                      customNameRef.current?.focus();
+                                    } else {
+                                      itemTypeTriggerRef.current?.focus();
+                                    }
+                                  }
+                                }}
                               >
                                 {field.value
                                   ? customers.find((c) => c.id === field.value)?.name
@@ -678,8 +713,24 @@ export default function SalesPage() {
                                       value={`${customer.code || ''} ${customer.name}`}
                                       key={customer.id}
                                       onSelect={() => {
+                                        const isWalkInSelection = customer.name?.toLowerCase().includes("walk-in");
                                         form.setValue("customerId", customer.id);
-                                        itemTypeTriggerRef.current?.focus();
+                                        setIsCustomerPopoverOpen(false);
+
+                                        if (isWalkInSelection) {
+                                          // Wait for render and popover close
+                                          setTimeout(() => {
+                                            const el = document.getElementById("custom-customer-name");
+                                            if (el) {
+                                              el.focus();
+                                            } else {
+                                              // Fallback to trigger then manual focus
+                                              customerTriggerRef.current?.focus();
+                                            }
+                                          }, 200);
+                                        } else {
+                                          setTimeout(() => itemTypeTriggerRef.current?.focus(), 100);
+                                        }
                                       }}
                                     >
                                       <Check
@@ -709,6 +760,35 @@ export default function SalesPage() {
                       </FormItem>
                     )}
                   />
+
+                  {isWalkIn && (
+                    <FormField
+                      control={form.control}
+                      name="customCustomerName"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                          <FormLabel className="font-semibold text-primary">Customer Name</FormLabel>
+                          <FormControl>
+                            <Input
+                              id="custom-customer-name"
+                              ref={customNameRef}
+                              placeholder="Enter walk-in customer name"
+                              className="h-10"
+                              {...field}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  itemTypeTriggerRef.current?.focus();
+                                }
+                              }}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
                 </div>
 
                 {/* Add Items (Flattened) */}
@@ -724,6 +804,7 @@ export default function SalesPage() {
                       <PopoverTrigger asChild>
                         <Button
                           ref={itemTypeTriggerRef}
+                          type="button"
                           variant="outline"
                           role="combobox"
                           aria-expanded={openCombobox}
@@ -876,10 +957,12 @@ export default function SalesPage() {
                   <CardFooter className="border-t bg-muted/30 flex flex-col gap-4 pt-6">
                     <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-6 pb-2">
                       <div className="space-y-3">
-                        <div className="flex justify-between items-center text-sm">
-                          <span className="text-muted-foreground font-bold">{t('forms.outstanding')}:</span>
-                          <span className="font-semibold text-destructive">{formatCurrency(outstanding)}</span>
-                        </div>
+                        {!isWalkIn && (
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="text-muted-foreground font-bold">{t('forms.outstanding')}:</span>
+                            <span className="font-semibold text-destructive">{formatCurrency(outstanding)}</span>
+                          </div>
+                        )}
                         <div className="flex justify-between items-center text-sm">
                           <span className="text-muted-foreground font-bold">{t('forms.total_bill')}:</span>
                           <span className="font-semibold">{formatCurrency(totalCost)}</span>
