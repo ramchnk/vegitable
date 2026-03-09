@@ -39,88 +39,89 @@ export const ThermalPrint = React.forwardRef<HTMLDivElement, ThermalPrintProps>(
     } = props;
 
     return (
-        <div ref={ref} className="p-2 font-mono text-xs w-[80mm] bg-white text-black box-border overflow-hidden">
+        <div ref={ref} className="p-1 font-mono text-[9.5px] w-[58mm] mx-auto bg-white text-black leading-tight border border-gray-100 shadow-sm">
             {/* Header */}
-            <div className="text-center mb-2">
-                <h1 className="text-lg font-bold">ஓம் சரவணா ஏஜென்சி</h1>
-                <p>26-26 மருந்தீஸ்வரர் காம்ப்ளக்ஸ்</p>
-                <p>திருவான்மியூர், சென்னை-41</p>
-                <p>Ph: 9176134333, 7305984233 (CMPLT-8248255011)</p>
+            <div className="text-center mb-1">
+                <h1 className="text-sm font-black uppercase tracking-tighter">ஓம் சரவணா ஏஜென்சி</h1>
+                <p className="text-[8px] font-bold">26-26 மருந்தீஸ்வரர் காம்ப்ளக்ஸ்</p>
+                <p className="text-[8px] font-bold">திருவான்மியூர், சென்னை-41</p>
+                <p className="text-[8px]">Ph: 9176134333, 7305984233</p>
             </div>
 
-            <div className="border-b border-black border-dashed my-2" />
+            <div className="border-b border-black border-dashed my-1" />
 
             {/* Sub-Header */}
-            <div className="text-center font-bold mb-2 text-sm">
-                {paymentType.toUpperCase()} BILL
+            <div className="text-center font-bold mb-1 text-xs uppercase tracking-tight">
+                {paymentType === "Cash" ? "Cash Bill" : "Credit Bill"}
             </div>
 
-            <div className="mb-2">
-                <p className="font-bold">{customerName}</p>
-                {customerAddress && <p>{customerAddress}</p>}
-                {customerPhone && <p>Ph: {customerPhone}</p>}
+            <div className="mb-1 text-[11px] font-black uppercase">
+                <p>{customerName}</p>
+                {customerAddress && <p className="text-[8px] font-normal">{customerAddress}</p>}
+                {customerPhone && <p className="text-[8px] font-normal">Ph: {customerPhone}</p>}
             </div>
 
-            <div className="flex justify-between mb-1">
+            <div className="flex justify-between mb-0.5 text-[9px] font-bold">
                 <span>No: {billNo}</span>
-                <span>Dt: {format(date, 'dd/MM/yy hh:mm a')}</span>
+                <span>{format(date, 'dd/MM/yy hh:mm a')}</span>
             </div>
 
-            <div className="border-b border-black border-dashed my-2" />
+            <div className="border-b border-black border-dashed my-1" />
 
-            {/* Items Table */}
-            <table className="w-full text-left">
-                <thead>
-                    <tr className="border-b border-black border-dashed">
-                        <th className="pb-1 w-[40%]">Items</th>
-                        <th className="pb-1 text-right w-[15%]">Qty</th>
-                        <th className="pb-1 text-right w-[20%]">Price</th>
-                        <th className="pb-1 text-right w-[25%]">Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {items.map((item, index) => (
-                        <tr key={index}>
-                            <td className="py-1 align-top">{item.name}</td>
-                            <td className="py-1 text-right align-top">{item.quantity}</td>
-                            <td className="py-1 text-right align-top">{item.price.toFixed(2)}</td>
-                            <td className="py-1 text-right align-top">{item.total.toFixed(2)}</td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
+            {/* Items Column Headers */}
+            <div className="grid grid-cols-[1fr_25px_40px_45px] gap-1 items-center border-b border-black border-dashed pb-1 mb-1 font-black text-[10px]">
+                <span className="text-left">Items</span>
+                <span className="text-right">Qty</span>
+                <span className="text-right">Price</span>
+                <span className="text-right">Total</span>
+            </div>
 
-            <div className="border-b border-black border-dashed my-2" />
+            {/* Items List */}
+            <div className="space-y-0.5">
+                {items.map((item, index) => (
+                    <div key={index} className="grid grid-cols-[1fr_25px_40px_45px] gap-1 items-start text-[10px] leading-tight">
+                        <span className="truncate pr-1">{item.name}</span>
+                        <span className="text-right whitespace-nowrap">{item.quantity}</span>
+                        <span className="text-right whitespace-nowrap">{item.price.toFixed(0)}</span>
+                        <span className="text-right whitespace-nowrap font-bold">{item.total.toFixed(0)}</span>
+                    </div>
+                ))}
+            </div>
+
+            <div className="border-b border-black border-dashed my-1" />
 
             {/* Footer Totals */}
-            <div className="flex justify-between font-bold mb-1">
-                <span>{totalItems} Items</span>
-                <span>Qty: {totalQty}</span>
-                <span>{totalAmount.toFixed(2)}</span>
+            <div className="space-y-0.5 mt-1">
+                <div className="flex justify-between items-center text-[11px] font-bold">
+                    <span>{totalItems} Items (Qty: {totalQty})</span>
+                    <span className="font-black text-xs">Sub: {totalAmount.toFixed(0)}</span>
+                </div>
+
+                <div className="border-b border-black border-double my-1.5" />
+
+                <div className="flex justify-between text-sm font-black items-center tracking-tighter">
+                    <span>GRAND TOTAL</span>
+                    <span className="text-base leading-none">Rs. {totalAmount.toFixed(0)}</span>
+                </div>
+
+                <div className="border-b border-black border-dashed my-1.5" />
+
+                <div className="flex justify-between text-[10px] items-center">
+                    <span className="font-bold">Old Balance:</span>
+                    <span className="font-black">{oldBalance.toFixed(0)}</span>
+                </div>
+                <div className="flex justify-between text-[11px] items-center pt-0.5">
+                    <span className="font-black">Closing Balance:</span>
+                    <span className="font-black text-sm">{currentBalance.toFixed(0)}</span>
+                </div>
             </div>
 
-            <div className="border-b border-black border-dashed my-2" />
-
-            <div className="flex justify-between text-lg font-bold mb-2">
-                <span>TOTAL Rs.</span>
-                <span>{totalAmount.toFixed(2)}</span>
-            </div>
-
-            <div className="flex justify-between">
-                <span>Old. Bal.:</span>
-                <span>{oldBalance.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between font-bold">
-                <span>Cur. Bal.:</span>
-                <span>{currentBalance.toFixed(2)}</span>
-            </div>
-
-            <div className="border-b border-black border-dashed my-4" />
+            <div className="border-t border-black border-dashed mt-4 pt-2" />
 
             {/* Footer Message */}
-            <div className="text-center text-sm">
+            <div className="text-center text-[10px] italic space-y-0.5 leading-tight font-bold">
                 <p>&quot;சப்ளை செய்யப்படும்!</p>
-                <p className="mt-1"> மீண்டும் வருக!! நன்றி!&quot;</p>
+                <p className="">மீண்டும் வருக!! நன்றி!&quot;</p>
             </div>
         </div>
     );

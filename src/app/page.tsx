@@ -138,18 +138,6 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-rose-50 to-pink-100 border-pink-200 shadow-sm relative overflow-hidden">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-bold text-rose-800 uppercase tracking-wider">{t('nav.products')}</CardTitle>
-              <Package className="h-4 w-4 text-rose-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-black text-rose-900">{products.length}</div>
-              <p className="text-xs text-rose-700/70 font-medium">
-                {t('dashboard.items_in_stock')}
-              </p>
-            </CardContent>
-          </Card>
 
           <Card className="bg-gradient-to-br from-indigo-50 to-purple-100 border-purple-200 shadow-md relative overflow-hidden lg:col-span-1 md:col-span-2">
             <CardHeader className="pb-2">

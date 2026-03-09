@@ -2,6 +2,7 @@ export type Product = {
     id: string;
     itemCode: string;
     name: string;
+    price?: number;
 };
 
 export type Supplier = {

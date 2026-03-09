@@ -213,8 +213,13 @@ export default function SalesPage() {
     setIsSubmitting(true);
 
     const customer = customers.find(c => c.id === data.customerId);
+    if (!customer) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Customer not found.' });
+      setIsSubmitting(false);
+      return;
+    }
 
-    console.log("Submitting bill with payment type:", data.paymentType, "Customer:", customer?.name);
+    console.log("Submitting bill with payment type:", data.paymentType, "Customer:", customer.name);
     const paymentMethod = data.paymentType;
     const isWalkIn = customer?.name?.toLowerCase() === "walk-in customer";
     const finalAmountPaid = isWalkIn ? totalCost : (data.amountPaid || 0);
@@ -311,7 +316,7 @@ export default function SalesPage() {
     setNewItemId(itemId);
     const product = products.find(p => p.id === itemId);
     if (product) {
-      setNewItemPrice("");
+      setNewItemPrice(product.price ? product.price.toString() : "");
     }
   }
 
@@ -414,11 +419,7 @@ export default function SalesPage() {
       styles.forEach(style => printWindow.document.head.appendChild(style));
 
       const hideHeaderFooterStyle = printWindow.document.createElement('style');
-      hideHeaderFooterStyle.innerHTML = `
-        @page { size: 80mm auto; margin: 0; }
-        body { margin: 0; padding: 0; width: 80mm; }
-        * { box-sizing: border-box; }
-      `;
+      hideHeaderFooterStyle.innerHTML = '@page { margin: 0; } body { margin: 0; }';
       printWindow.document.head.appendChild(hideHeaderFooterStyle);
       printWindow.document.title = '';
 
@@ -501,6 +502,7 @@ export default function SalesPage() {
                 @page { size: A5; margin: 0; }
                 @media print {
                     body { margin: 0; padding: 0; }
+                    * { -webkit-print-color-adjust: exact; }
                 }
             `;
       printWindow.document.head.appendChild(hideHeaderFooterStyle);
@@ -593,7 +595,7 @@ export default function SalesPage() {
       </Header>
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6 bg-muted/20">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit((data) => onSubmit(data))} className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
               {/* Left Column: Bill Info & Item Entry */}
@@ -765,17 +767,20 @@ export default function SalesPage() {
                     <FormField
                       control={form.control}
                       name="customCustomerName"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-col">
-                          <FormLabel className="font-semibold text-primary">Customer Name</FormLabel>
-                          <FormControl>
-                            <Input
-                              id="custom-customer-name"
-                              ref={customNameRef}
-                              placeholder="Enter walk-in customer name"
-                              className="h-10"
-                              {...field}
-                              onKeyDown={(e) => {
+                              render={({ field }) => (
+                                <FormItem className="flex flex-col">
+                                  <FormLabel className="font-semibold text-primary">Customer Name</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      id="custom-customer-name"
+                                      placeholder="Enter walk-in customer name"
+                                      className="h-10"
+                                      {...field}
+                                      ref={(e) => {
+                                        field.ref(e);
+                                        (customNameRef as any).current = e;
+                                      }}
+                                      onKeyDown={(e) => {
                                 if (e.key === "Enter") {
                                   e.preventDefault();
                                   e.stopPropagation();

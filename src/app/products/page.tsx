@@ -29,12 +29,19 @@ import { downloadCsv } from "@/lib/utils";
 import { AddProductDialog } from "@/components/products/add-product-dialog";
 import { EditProductDialog } from "@/components/products/edit-product-dialog";
 import { useLanguage } from "@/context/language-context";
-import { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 
+import { useSearchParams, useRouter } from "next/navigation";
+
+import confetti from "canvas-confetti";
+
 export default function ProductsPage() {
-  const { products, deleteProduct } = useTransactions();
+  const { products, deleteProduct, updateProduct } = useTransactions();
   const { t } = useLanguage();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const editParam = searchParams.get('edit');
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [openEditDialog, setOpenEditDialog] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -42,6 +49,11 @@ export default function ProductsPage() {
     key: "itemCode" | "name";
     direction: "asc" | "desc";
   } | null>(null);
+
+  // Bulk Edit States
+  const [isBulkEditing, setIsBulkEditing] = useState(false);
+  const [tempPrices, setTempPrices] = useState<Record<string, number>>({});
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
 
   const sortedProducts = useMemo(() => {
     let items = products.filter(product =>
@@ -74,10 +86,11 @@ export default function ProductsPage() {
   const handleExport = () => {
     const exportData = products.map(product => ({
       [t('products.item_code')]: product.itemCode,
-      [t('products.item_name')]: product.name
+      [t('products.item_name')]: product.name,
+      [t('forms.price')]: product.price || 0
     }));
     downloadCsv(exportData, 'items.csv');
-  }
+  };
 
   const handleEdit = (product: any) => {
     setEditingProduct(product);
@@ -89,6 +102,83 @@ export default function ProductsPage() {
       await deleteProduct(id);
     }
   }
+
+  const startBulkEdit = () => {
+    const initialPrices: Record<string, number> = {};
+    products.forEach(p => {
+      initialPrices[p.id] = p.price || 0;
+    });
+    setTempPrices(initialPrices);
+    setIsBulkEditing(true);
+    // Focus the first input after render
+    setTimeout(() => {
+      const firstInput = document.getElementById('price-input-0');
+      if (firstInput) {
+        (firstInput as HTMLInputElement).focus();
+        (firstInput as HTMLInputElement).select();
+        setFocusedIndex(0);
+      }
+    }, 0);
+  };
+
+  // Handle URL parameter to trigger edit mode
+  useEffect(() => {
+    if (editParam === 'true' && products.length > 0 && !isBulkEditing) {
+      startBulkEdit();
+      // Clear the query param without refreshing
+      router.replace('/products', { scroll: false });
+    }
+  }, [editParam, products, isBulkEditing, router]);
+
+  const saveBulkChanges = async () => {
+    try {
+      let hasChanges = false;
+      for (const product of products) {
+        if (tempPrices[product.id] !== undefined && tempPrices[product.id] !== product.price) {
+          await updateProduct({ ...product, price: tempPrices[product.id] });
+          hasChanges = true;
+        }
+      }
+      setIsBulkEditing(false);
+      setTempPrices({});
+      setFocusedIndex(null);
+
+      if (hasChanges) {
+        // Celebration Sparkles!
+        confetti({
+          particleCount: 150,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#ec4899']
+        });
+      }
+    } catch (error) {
+      console.error("Failed to save bulk changes", error);
+    }
+  };
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'F4' && isBulkEditing) {
+        e.preventDefault();
+        saveBulkChanges();
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [isBulkEditing, products, tempPrices]);
+
+  const handlePriceKeyDown = (e: React.KeyboardEvent, index: number) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const nextInput = document.getElementById(`price-input-${index + 1}`);
+      if (nextInput) {
+        (nextInput as HTMLInputElement).focus();
+        (nextInput as HTMLInputElement).select();
+      }
+    }
+  };
 
   return (
     <>
@@ -112,12 +202,31 @@ export default function ProductsPage() {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
-                <AddProductDialog>
-                  <Button size="sm" className="gap-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white border-none shadow-sm transition-all duration-200">
-                    <PlusCircle className="h-4 w-4" />
-                    {t('products.add_product')}
-                  </Button>
-                </AddProductDialog>
+
+                {!isBulkEditing ? (
+                  <>
+                    <Button size="sm" variant="outline" className="gap-1 border-blue-200 hover:bg-blue-50 text-blue-700" onClick={startBulkEdit}>
+                      <Edit className="h-4 w-4" />
+                      Edit Prices
+                    </Button>
+                    <AddProductDialog>
+                      <Button size="sm" className="gap-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white border-none shadow-sm transition-all duration-200">
+                        <PlusCircle className="h-4 w-4" />
+                        {t('products.add_product')}
+                      </Button>
+                    </AddProductDialog>
+                  </>
+                ) : (
+                  <>
+                    <Button size="sm" className="gap-1 bg-green-600 hover:bg-green-700 text-white" onClick={saveBulkChanges}>
+                      {t('actions.save')}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => { setIsBulkEditing(false); setFocusedIndex(null); }}>
+                      {t('actions.cancel')}
+                    </Button>
+                  </>
+                )}
+
                 <Button size="sm" className="gap-1 bg-pink-100 hover:bg-pink-200 text-pink-900 border-none shadow-sm" onClick={handleExport}>
                   <Download className="h-4 w-4" />
                   {t('actions.export_csv')}
@@ -151,22 +260,47 @@ export default function ProductsPage() {
                           ) : " ↕"}
                         </div>
                       </TableHead>
+                      <TableHead className="font-bold text-primary">{t('forms.price')}</TableHead>
+                      {isBulkEditing && (
+                        <TableHead className="font-bold text-blue-700 bg-blue-50/50 w-[150px]">Update Price</TableHead>
+                      )}
                       <TableHead className="text-right w-[100px] font-bold text-primary">{t('forms.actions')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {sortedProducts.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={3} className="h-40 text-center text-muted-foreground italic">
+                        <TableCell colSpan={isBulkEditing ? 5 : 4} className="h-40 text-center text-muted-foreground italic">
                           {t('products.no_items_found') || "No items found."}
                         </TableCell>
                       </TableRow>
                     ) : (
-                      sortedProducts.map((product) => (
-                        <TableRow key={product.id} className="hover:bg-muted/30 transition-colors">
+                      sortedProducts.map((product, index) => (
+                        <TableRow
+                          key={product.id}
+                          className={`transition-colors duration-200 ${focusedIndex === index
+                            ? "bg-blue-100/60 ring-1 ring-blue-300 ring-inset"
+                            : "hover:bg-muted/30"
+                            }`}
+                        >
                           <TableCell className="font-medium font-mono text-primary">{product.itemCode}</TableCell>
                           <TableCell className="font-semibold">{product.name}</TableCell>
-
+                          <TableCell className="font-semibold">{product.price || 0}</TableCell>
+                          {isBulkEditing && (
+                            <TableCell className="bg-blue-50/20">
+                              <Input
+                                id={`price-input-${index}`}
+                                type="number"
+                                className={`h-8 w-24 bg-white border-blue-200 focus-visible:ring-blue-500 transition-all ${focusedIndex === index ? "border-blue-500 ring-1 ring-blue-500" : ""
+                                  }`}
+                                value={tempPrices[product.id] ?? ""}
+                                onChange={(e) => setTempPrices(prev => ({ ...prev, [product.id]: Number(e.target.value) }))}
+                                onKeyDown={(e) => handlePriceKeyDown(e, index)}
+                                onFocus={() => setFocusedIndex(index)}
+                                onBlur={() => setFocusedIndex(null)}
+                              />
+                            </TableCell>
+                          )}
                           <TableCell className="text-right">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>

@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { Check, User, Wallet, Banknote, Scale, FileText } from "lucide-react";
+import { Check, User, Wallet, Banknote, Scale, FileText, ChevronsUpDown } from "lucide-react";
 import { useTransactions } from "@/context/transaction-provider";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -28,8 +28,35 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from "@/components/ui/command";
+import * as PopoverPrimitive from "@radix-ui/react-popover";
+import { Popover, PopoverTrigger } from "@/components/ui/popover";
 import { createRoot } from 'react-dom/client';
 import { PaymentReceipt } from "./payment-receipt";
+
+const PopoverContentInsideDialog = React.forwardRef<
+    React.ElementRef<typeof PopoverPrimitive.Content>,
+    React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content>
+>(({ className, align = "start", sideOffset = 4, ...props }, ref) => (
+    <PopoverPrimitive.Content
+        ref={ref}
+        align={align}
+        sideOffset={sideOffset}
+        className={cn(
+            "z-[100] w-[--radix-popover-trigger-width] rounded-md border bg-popover p-0 text-popover-foreground shadow-xl outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
+            className
+        )}
+        {...props}
+    />
+));
+PopoverContentInsideDialog.displayName = "PopoverContentInsideDialog";
 
 const transactionFormSchema = z.object({
     partyId: z.string().min(1, "Required"),
@@ -44,9 +71,9 @@ interface TransactionDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     type: "Customer" | "Supplier";
-    partyId: string;
-    partyName: string;
-    initialDueAmount: number;
+    partyId?: string;
+    partyName?: string;
+    initialDueAmount?: number;
     onSuccess?: () => void;
 }
 
@@ -59,16 +86,22 @@ export function TransactionDialog({
     initialDueAmount,
     onSuccess,
 }: TransactionDialogProps) {
-    const { addPayment } = useTransactions();
+    const { addPayment, customers, customerPayments, suppliers, supplierPayments, customersLoading, suppliersLoading, loading } = useTransactions();
     const { toast } = useToast();
     const { t } = useLanguage();
     const amountInputRef = useRef<HTMLInputElement>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isPartyPopoverOpen, setIsPartyPopoverOpen] = useState(false);
+
+    // Internal state for when used as a global dialog
+    const [selectedPartyId, setSelectedPartyId] = useState<string | undefined>(partyId);
+    const [selectedPartyName, setSelectedPartyName] = useState<string | undefined>(partyName);
+    const [selectedDueAmount, setSelectedDueAmount] = useState<number | undefined>(initialDueAmount);
 
     const form = useForm<TransactionFormValues>({
         resolver: zodResolver(transactionFormSchema),
         defaultValues: {
-            partyId: partyId,
+            partyId: partyId || "",
             givenAmount: undefined,
             paymentMethod: "Cash",
             narration: "",
@@ -78,22 +111,28 @@ export function TransactionDialog({
     useEffect(() => {
         if (open) {
             form.reset({
-                partyId: partyId,
+                partyId: partyId || "",
                 givenAmount: undefined,
                 paymentMethod: "Cash",
                 narration: "",
             });
-            setTimeout(() => {
-                amountInputRef.current?.focus();
-            }, 100);
+            setSelectedPartyId(partyId);
+            setSelectedPartyName(partyName);
+            setSelectedDueAmount(initialDueAmount);
+
+            if (partyId) {
+                setTimeout(() => {
+                    amountInputRef.current?.focus();
+                }, 100);
+            }
         }
-    }, [open, partyId, form]);
+    }, [open, partyId, partyName, initialDueAmount, form]);
 
     const { givenAmount, paymentMethod, narration } = form.watch();
 
     const closingBalance = useMemo(() => {
-        return (initialDueAmount || 0) - (givenAmount || 0);
-    }, [initialDueAmount, givenAmount]);
+        return (selectedDueAmount || 0) - (givenAmount || 0);
+    }, [selectedDueAmount, givenAmount]);
 
     const handlePrint = () => {
         const printWindow = window.open('', '_blank', 'width=400,height=600');
@@ -117,12 +156,12 @@ export function TransactionDialog({
             root.render(
                 <PaymentReceipt
                     date={new Date()}
-                    partyName={partyName}
+                    partyName={partyName || selectedPartyName || ""}
                     partyType={type}
                     paymentMethod={paymentMethod === "Cash" ? t('payments.cash') : (paymentMethod === "NEFT" ? t('forms.neft') : paymentMethod)}
                     amount={givenAmount || 0}
                     narration={narration}
-                    oldBalance={initialDueAmount}
+                    oldBalance={initialDueAmount || selectedDueAmount || 0}
                     currentBalance={closingBalance}
                 />
             );
@@ -137,8 +176,8 @@ export function TransactionDialog({
         setIsSubmitting(true);
         try {
             await addPayment(
-                partyId,
-                partyName,
+                selectedPartyId!,
+                selectedPartyName!,
                 type,
                 data.givenAmount,
                 data.paymentMethod,
@@ -173,7 +212,7 @@ export function TransactionDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-md p-0 overflow-hidden border-none shadow-2xl">
+            <DialogContent className="max-w-md p-0 overflow-visible border-none shadow-2xl">
                 <DialogHeader className="p-3 text-white" style={{ backgroundColor: themeColor }}>
                     <DialogTitle className="text-base font-bold">
                         {type === "Customer" ? t('payments.buyer_title') : t('payments.supplier_title')}
@@ -182,16 +221,101 @@ export function TransactionDialog({
 
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit((data) => onSubmit(data))} className="p-5 space-y-4">
-                        {/* Party Info */}
-                        <div className="grid grid-cols-2 items-center gap-4">
-                            <span className="text-sm font-bold text-gray-700">{type === "Customer" ? t('forms.customer') : t('forms.supplier')}</span>
-                            <span className="text-sm font-black text-gray-900 text-right truncate">{partyName}</span>
+                        {/* Party Selection (Searchable Dropdown if no partyId provided) */}
+                        <div className="flex flex-col gap-2">
+                            <Label className="text-sm font-bold text-gray-700">
+                                {type === "Customer" ? t('forms.customer') : t('forms.supplier')}
+                            </Label>
+                            {partyId ? (
+                                <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between">
+                                    <span className="text-sm font-black text-gray-900 truncate">{partyName}</span>
+                                    <User className="h-4 w-4 text-slate-400" />
+                                </div>
+                            ) : (
+                                <Popover open={isPartyPopoverOpen} onOpenChange={setIsPartyPopoverOpen} modal={false}>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            role="combobox"
+                                            className="w-full justify-between h-10 border-gray-300 font-bold text-gray-900"
+                                        >
+                                            {selectedPartyId
+                                                ? (type === "Customer" ? customers : suppliers).find((p) => p.id === selectedPartyId)?.name
+                                                : (type === "Customer" ? t('forms.select_customer') : t('forms.select_supplier'))}
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContentInsideDialog
+                                        className="w-[--radix-popover-trigger-width] p-0"
+                                        align="start"
+                                    >
+                                        <Command onKeyDown={(e) => {
+                                            // Prevent Escape from closing the Dialog while in the Command list
+                                            if (e.key === "Escape") {
+                                                e.stopPropagation();
+                                                setIsPartyPopoverOpen(false);
+                                            }
+                                        }}>
+                                            <CommandInput
+                                                placeholder={type === "Customer" ? t('forms.search_customer') : t('forms.search_supplier')}
+                                                autoFocus
+                                            />
+                                            <CommandList>
+                                                {(type === "Customer" ? customersLoading : suppliersLoading) && (
+                                                    <div className="p-4 text-center text-xs text-muted-foreground italic">Loading...</div>
+                                                )}
+                                                <CommandEmpty>{type === "Customer" ? t('forms.no_customer_found') : t('forms.no_supplier_found')}</CommandEmpty>
+                                                <CommandGroup>
+                                                    {(type === "Customer" 
+                                                        ? customers.filter(c => (c as any).code !== "000") 
+                                                        : suppliers).map((party) => (
+                                                        <CommandItem
+                                                            value={`${(party as any).code || ''} ${party.name}`}
+                                                            key={party.id}
+                                                            onSelect={() => {
+                                                                setSelectedPartyId(party.id);
+                                                                setSelectedPartyName(party.name);
+
+                                                                // Fetch due amount
+                                                                const paymentDetail = (type === "Customer" ? customerPayments : supplierPayments)
+                                                                    .find(p => p.partyId === party.id);
+                                                                setSelectedDueAmount(paymentDetail?.dueAmount || 0);
+
+                                                                form.setValue("partyId", party.id);
+                                                                setIsPartyPopoverOpen(false);
+
+                                                                setTimeout(() => amountInputRef.current?.focus(), 100);
+                                                            }}
+                                                        >
+                                                            <Check
+                                                                className={cn(
+                                                                    "mr-2 h-4 w-4",
+                                                                    party.id === selectedPartyId ? "opacity-100" : "opacity-0"
+                                                                )}
+                                                            />
+                                                            <span className="flex items-center gap-2">
+                                                                {(party as any).code && (
+                                                                    <span className="px-1.5 py-0.5 rounded bg-slate-100 font-mono text-xs font-bold text-slate-600">
+                                                                        {(party as any).code}
+                                                                    </span>
+                                                                )}
+                                                                <span className="font-bold">{party.name}</span>
+                                                            </span>
+                                                        </CommandItem>
+                                                    ))}
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContentInsideDialog>
+                                </Popover>
+                            )}
                         </div>
 
                         {/* Opening Balance */}
-                        <div className="grid grid-cols-2 items-center gap-4">
+                        <div className="grid grid-cols-2 items-center gap-4 bg-slate-50/50 p-2.5 rounded-lg border border-slate-100">
                             <span className="text-sm font-bold text-gray-700">{t('payments.opening_balance_debit')}</span>
-                            <span className="text-base font-bold text-slate-900 text-right">{initialDueAmount.toFixed(0)}</span>
+                            <span className="text-base font-black text-slate-900 text-right">{(selectedDueAmount || 0).toFixed(0)}</span>
                         </div>
 
                         {/* Amount Field */}
@@ -297,7 +421,7 @@ export function TransactionDialog({
                             <Button
                                 type="submit"
                                 size="sm"
-                                disabled={isSubmitting || !givenAmount || givenAmount <= 0}
+                                disabled={isSubmitting || !givenAmount || givenAmount <= 0 || !selectedPartyId}
                                 className={cn("h-10 px-8 font-bold text-white border-none shadow-md", btnColor)}
                             >
                                 {isSubmitting ? "..." : t('actions.submit')}

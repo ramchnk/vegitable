@@ -32,6 +32,7 @@ import { useLanguage } from "@/context/language-context";
 const productFormSchema = z.object({
     itemCode: z.string().min(1, "Item code is required"),
     name: z.string().min(1, "Item name is required"),
+    price: z.preprocess((val) => Number(val), z.number().min(0).optional()),
 });
 
 type ProductFormValues = z.infer<typeof productFormSchema>;
@@ -50,6 +51,7 @@ export function EditProductDialog({ product, open, onOpenChange }: EditProductDi
         defaultValues: {
             itemCode: "",
             name: "",
+            price: 0,
         },
     });
 
@@ -58,6 +60,7 @@ export function EditProductDialog({ product, open, onOpenChange }: EditProductDi
             form.reset({
                 itemCode: product.itemCode,
                 name: product.name,
+                price: product.price || 0,
             });
         }
     }, [product, form]);
@@ -109,6 +112,22 @@ export function EditProductDialog({ product, open, onOpenChange }: EditProductDi
                                         </FormLabel>
                                         <FormControl>
                                             <Input placeholder="e.g. Bell Pepper" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="price"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="font-bold flex items-center gap-2">
+                                            <Hash className="h-4 w-4 text-primary" />
+                                            {t('forms.price')}
+                                        </FormLabel>
+                                        <FormControl>
+                                            <Input type="number" placeholder="0.00" {...field} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>

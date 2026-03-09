@@ -39,7 +39,7 @@ export const A5Print = React.forwardRef<HTMLDivElement, A5PrintProps>((props, re
     const emptyRows = Math.max(0, minRows - items.length);
 
     return (
-        <div ref={ref} className="w-[148mm] h-[210mm] bg-white text-black font-sans p-6 relative text-sm overflow-hidden box-border">
+        <div ref={ref} className="w-[148mm] h-[210mm] bg-white text-black font-sans p-8 relative text-sm overflow-hidden box-border">
             <style dangerouslySetInnerHTML={{
                 __html: `
                 @page { 
@@ -88,12 +88,12 @@ export const A5Print = React.forwardRef<HTMLDivElement, A5PrintProps>((props, re
                     {/* Right Side: Bill Info */}
                     <div className="w-[40%] flex flex-col">
                         <div className="flex border-b border-black">
-                            <div className="w-1/2 border-r border-black p-1 text-center font-bold">{format(date, 'h:mm a')}</div>
-                            <div className="w-1/2 p-1 text-center font-bold text-base">Bill No : {billNo}</div>
+                            <div className="w-[45%] border-r border-black p-1 text-center font-bold text-xs">{format(date, 'h:mm a')}</div>
+                            <div className="w-[55%] p-1 text-center font-bold text-sm">Bill No : {billNo}</div>
                         </div>
                         <div className="flex flex-1">
-                            <div className="w-1/2 border-r border-black p-1 flex items-center justify-center font-bold">Date</div>
-                            <div className="w-1/2 p-1 flex items-center justify-center font-bold">{format(date, 'dd/MM/yyyy')}</div>
+                            <div className="w-[45%] border-r border-black p-1 flex items-center justify-center font-bold">Date</div>
+                            <div className="w-[55%] p-1 flex items-center justify-center font-bold">{format(date, 'dd/MM/yyyy')}</div>
                         </div>
                     </div>
                 </div>
@@ -102,32 +102,32 @@ export const A5Print = React.forwardRef<HTMLDivElement, A5PrintProps>((props, re
                 <div className="border border-black mb-1">
                     {/* Table Header */}
                     <div className="flex border-b border-black text-center font-bold bg-transparent">
-                        <div className="w-[8%] border-r border-black py-1">S.No</div>
-                        <div className="w-[47%] border-r border-black py-1 text-left px-2">Description</div>
+                        <div className="w-[6%] border-r border-black py-1">S.No</div>
+                        <div className="w-[44%] border-r border-black py-1 text-left px-2">Description</div>
                         <div className="w-[15%] border-r border-black py-1">QTY</div>
                         <div className="w-[15%] border-r border-black py-1">Rate</div>
-                        <div className="w-[15%] py-1">Amount</div>
+                        <div className="w-[20%] py-1">Amount</div>
                     </div>
 
                     {/* Table Body */}
                     {items.map((item, index) => (
                         <div key={index} className="flex border-b border-black text-sm h-6">
-                            <div className="w-[8%] border-r border-black text-center">{index + 1}</div>
-                            <div className="w-[47%] border-r border-black px-2 truncate uppercase text-left">{item.name}</div>
+                            <div className="w-[6%] border-r border-black text-center">{index + 1}</div>
+                            <div className="w-[44%] border-r border-black px-2 truncate uppercase text-left">{item.name}</div>
                             <div className="w-[15%] border-r border-black text-center">{item.quantity.toFixed(3)}</div>
                             <div className="w-[15%] border-r border-black text-right px-1">{item.price.toFixed(2)}</div>
-                            <div className="w-[15%] text-right px-1">{item.total.toFixed(2)}</div>
+                            <div className="w-[20%] text-right px-1">{item.total.toFixed(2)}</div>
                         </div>
                     ))}
 
                     {/* Empty Rows */}
                     {Array.from({ length: emptyRows }).map((_, index) => (
                         <div key={`empty-${index}`} className="flex border-b border-black text-sm h-6">
-                            <div className="w-[8%] border-r border-black"></div>
-                            <div className="w-[47%] border-r border-black"></div>
+                            <div className="w-[6%] border-r border-black"></div>
+                            <div className="w-[44%] border-r border-black"></div>
                             <div className="w-[15%] border-r border-black"></div>
                             <div className="w-[15%] border-r border-black"></div>
-                            <div className="w-[15%]"></div>
+                            <div className="w-[20%]"></div>
                         </div>
                     ))}
                 </div>

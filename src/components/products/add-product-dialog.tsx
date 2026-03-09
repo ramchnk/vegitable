@@ -23,7 +23,7 @@ import { Input } from "@/components/ui/input";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { useState } from "react";
+import React, { useState } from "react";
 import { Package, Hash } from "lucide-react";
 import { useTransactions } from "@/context/transaction-provider";
 import { useLanguage } from "@/context/language-context";
@@ -31,6 +31,7 @@ import { useLanguage } from "@/context/language-context";
 const productFormSchema = z.object({
   itemCode: z.string().min(1, "Item code is required"),
   name: z.string().min(1, "Item name is required"),
+  price: z.preprocess((val) => Number(val), z.number().min(0).optional()),
 });
 
 type ProductFormValues = z.infer<typeof productFormSchema>;
@@ -44,6 +45,7 @@ export function AddProductDialog({ children }: { children: React.ReactNode }) {
     defaultValues: {
       itemCode: "",
       name: "",
+      price: 0,
     },
   });
 
@@ -94,6 +96,22 @@ export function AddProductDialog({ children }: { children: React.ReactNode }) {
                     </FormLabel>
                     <FormControl>
                       <Input placeholder="e.g. Bell Pepper" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="price"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-bold flex items-center gap-2">
+                      <Hash className="h-4 w-4 text-primary" />
+                      {t('forms.price')}
+                    </FormLabel>
+                    <FormControl>
+                      <Input type="number" placeholder="0.00" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

@@ -51,7 +51,7 @@ export function useCollection<T = DocumentData>(
       },
       (err) => {
         const permissionError = new FirestorePermissionError({
-          path: queryOrRef.path,
+          path: (queryOrRef as any).path || (queryOrRef as any).converter ? 'query' : 'unknown',
           operation: 'list',
         } satisfies SecurityRuleContext);
 

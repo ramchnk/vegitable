@@ -45,6 +45,8 @@ interface TransactionContextType {
     deleteCustomer: (id: string, silent?: boolean) => Promise<void>;
     deleteSupplier: (id: string, silent?: boolean) => Promise<void>;
     deletePayment: (transactionId: string, partyType: "Customer" | "Supplier", partyId: string) => Promise<void>;
+    customersLoading: boolean;
+    suppliersLoading: boolean;
     loading: boolean;
 }
 
@@ -686,7 +688,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    const value: TransactionContextType = { transactions, addTransaction, supplierPayments, customerPayments, updateSupplierPayment, updateCustomerPayment, suppliers, addSupplier, updateSupplier, customers, addCustomer, updateCustomer, deleteCustomer, deleteSupplier, deletePayment, dailySummaries, saveDailySummary, addPayment, products, addProduct, updateProduct, deleteProduct, loading };
+    const value: TransactionContextType = { transactions, addTransaction, supplierPayments, customerPayments, updateSupplierPayment, updateCustomerPayment, suppliers, addSupplier, updateSupplier, customers, addCustomer, updateCustomer, deleteCustomer, deleteSupplier, deletePayment, dailySummaries, saveDailySummary, addPayment, products, addProduct, updateProduct, deleteProduct, customersLoading, suppliersLoading, loading };
 
     return (
         <TransactionContext.Provider value={value}>

@@ -2,7 +2,7 @@
 
 import { useUser } from '@/firebase/auth/use-user';
 import { useRouter, usePathname } from 'next/navigation';
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
     const { user, loading } = useUser();

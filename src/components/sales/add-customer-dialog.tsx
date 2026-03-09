@@ -38,8 +38,18 @@ const customerFormSchema = z.object({
 
 type CustomerFormValues = z.infer<typeof customerFormSchema>;
 
-export function AddCustomerDialog({ children }: { children: React.ReactNode }) {
-  const [open, setOpen] = useState(false);
+interface AddCustomerDialogProps {
+  children?: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}
+
+export function AddCustomerDialog({ children, open: controlledOpen, onOpenChange: setControlledOpen }: AddCustomerDialogProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  
+  const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const setOpen = setControlledOpen !== undefined ? setControlledOpen : setInternalOpen;
+
   const { addCustomer, customers } = useTransactions();
   const { t } = useLanguage();
 
@@ -101,7 +111,7 @@ export function AddCustomerDialog({ children }: { children: React.ReactNode }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{children}</DialogTrigger>
+      {children && <DialogTrigger asChild>{children}</DialogTrigger>}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{t('customers.new_customer_title')}</DialogTitle>

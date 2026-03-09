@@ -20,6 +20,13 @@ export const translations = {
             logout: 'Log out',
             history: 'History',
         },
+        // Common
+        common: {
+            success: 'Success',
+            error: 'Error',
+            error_msg: 'Something went wrong. Please try again.',
+            error_occurred: 'An error occurred. Please try again.',
+        },
         // Common Actions
         actions: {
             new: 'New',
@@ -97,6 +104,8 @@ export const translations = {
             select_item: 'Select Item Type',
             search_item: 'Search item...',
             no_customer_found: 'No customer found.',
+            no_supplier_found: 'No supplier found.',
+            search_supplier: 'Search supplier...',
             no_item_found: 'No item found.',
             pick_date: 'Pick a date',
             contact: 'Contact',
@@ -148,6 +157,7 @@ export const translations = {
             cash: 'CASH',
             narration: 'Narration',
             save_transaction: 'Save Transaction',
+            payment_added_success: 'Payment recorded successfully.',
         },
         // Reports
         reports: {
@@ -253,6 +263,13 @@ export const translations = {
             logout: 'வெளியேறு',
             history: 'வரலாறு',
         },
+        // Common
+        common: {
+            success: 'வெற்றி',
+            error: 'பிழை',
+            error_msg: 'ஏதோ தவறு நடந்துவிட்டது. மீண்டும் முயற்சிக்கவும்.',
+            error_occurred: 'பிழை ஏற்பட்டது. மீண்டும் முயற்சிக்கவும்.',
+        },
         // Common Actions
         actions: {
             new: 'புதியது',
@@ -331,6 +348,8 @@ export const translations = {
             search_customer: 'வாடிக்கையாளரைத் தேடு...',
             search_item: 'பொருளைத் தேடு...',
             no_customer_found: 'வாடிக்கையாளர் யாரும் இல்லை.',
+            no_supplier_found: 'சப்ளையர் யாரும் இல்லை.',
+            search_supplier: 'சப்ளையரைத் தேடு...',
             no_item_found: 'பொருட்கள் எதுவும் இல்லை.',
             pick_date: 'தேதியைத் தேர்ந்தெடுக்கவும்',
             contact: 'தொடர்பு எண்',
@@ -381,6 +400,7 @@ export const translations = {
             cash: 'ரொக்கம்',
             narration: 'விளக்கம்',
             save_transaction: 'பரிவர்த்தனையைச் சேமி',
+            payment_added_success: 'பணம் செலுத்துதல் வெற்றிகரமாகப் பதிவு செய்யப்பட்டது.',
         },
         // Reports
         reports: {
