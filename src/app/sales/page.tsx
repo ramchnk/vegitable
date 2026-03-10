@@ -569,6 +569,56 @@ export default function SalesPage() {
           setIsCustomerPopoverOpen(true);
         }
       }
+
+      // Up and Down arrow navigation
+      if ((e.key === "ArrowUp" || e.key === "ArrowDown") && !isCustomerPopoverOpen && !isCalendarOpen && !openCombobox) {
+        const activeEl = document.activeElement;
+        
+        // Define the focusable elements in logical order
+        const selectors = [
+          'button[role="combobox"]', // Customer Search
+          'input#custom-customer-name', // Custom Name
+          'button[aria-expanded][role="combobox"]', // Item Type Search
+          'input[placeholder="0.00"]:not(#amountPaid)', // Weight and Price (using placeholder as they don't have unique IDs)
+          'button.w-full.mt-2.gap-2', // Add Item Button
+          'input#amountPaid', // Paid Amount
+          'button:has(svg.lucide-trash)', // Clear Bill (contains trash icon)
+          'button:contains("Save & Print A5")',
+          'button:contains("Save & Thermal")',
+          'button:contains("Save Bill")',
+          'button:has(svg.lucide-message-circle)' // WhatsApp Button
+        ];
+
+        // Better approach: filter all focusable elements within the form
+        const form = document.querySelector('form');
+        if (!form) return;
+
+        const focusableElements = Array.from(
+          form.querySelectorAll('button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled])')
+        ) as HTMLElement[];
+
+        // Filter out elements that shouldn't be in the arrow navigation (like clear buttons inside inputs if any)
+        const filteredElements = focusableElements.filter(el => {
+          // Exclude the date picker button since it's disabled in the current code (lines 615-617)
+          if (el.innerText.includes(format(new Date(), "PPP")) || el.innerText.includes("PPP")) {
+             // It's the date button, but let's check if it's actually disabled
+             if (el.hasAttribute('disabled')) return false;
+          }
+          return true;
+        });
+
+        const currentIndex = filteredElements.indexOf(activeEl as HTMLElement);
+        
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          const nextIndex = (currentIndex + 1) % filteredElements.length;
+          filteredElements[nextIndex].focus();
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          const prevIndex = (currentIndex - 1 + filteredElements.length) % filteredElements.length;
+          filteredElements[prevIndex].focus();
+        }
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -683,17 +733,6 @@ export default function SalesPage() {
                                 variant="outline"
                                 role="combobox"
                                 className="w-full justify-between h-10 !text-[#064e3b] !font-bold"
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    if (isWalkIn) {
-                                      customNameRef.current?.focus();
-                                    } else {
-                                      itemTypeTriggerRef.current?.focus();
-                                    }
-                                  }
-                                }}
                               >
                                 {field.value
                                   ? customers.find((c) => c.id === field.value)?.name
