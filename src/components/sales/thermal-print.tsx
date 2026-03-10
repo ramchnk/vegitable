@@ -68,25 +68,27 @@ export const ThermalPrint = React.forwardRef<HTMLDivElement, ThermalPrintProps>(
 
             <div className="border-b border-black border-dashed my-1" />
 
-            {/* Items Column Headers */}
-            <div className="grid grid-cols-[1fr_25px_40px_45px] gap-1 items-center border-b border-black border-dashed pb-1 mb-1 font-black text-[10px]">
-                <span className="text-left">Items</span>
-                <span className="text-right">Qty</span>
-                <span className="text-right">Price</span>
-                <span className="text-right">Total</span>
-            </div>
-
-            {/* Items List */}
-            <div className="space-y-0.5">
-                {items.map((item, index) => (
-                    <div key={index} className="grid grid-cols-[1fr_25px_40px_45px] gap-1 items-start text-[10px] leading-tight">
-                        <span className="truncate pr-1">{item.name}</span>
-                        <span className="text-right whitespace-nowrap">{item.quantity}</span>
-                        <span className="text-right whitespace-nowrap">{item.price.toFixed(0)}</span>
-                        <span className="text-right whitespace-nowrap font-bold">{item.total.toFixed(0)}</span>
-                    </div>
-                ))}
-            </div>
+            {/* Items Table */}
+            <table className="w-full border-collapse">
+                <thead>
+                    <tr className="border-b border-black border-dashed font-black text-[10px]">
+                        <th className="text-left pb-1">Items</th>
+                        <th className="text-right pb-1 px-1" style={{ width: '30px' }}>Qty</th>
+                        <th className="text-right pb-1 px-1" style={{ width: '40px' }}>Price</th>
+                        <th className="text-right pb-1 pl-1" style={{ width: '45px' }}>Total</th>
+                    </tr>
+                </thead>
+                <tbody className="text-[10px] leading-tight">
+                    {items.map((item, index) => (
+                        <tr key={index} className="align-top">
+                            <td className="py-0.5 truncate max-w-[80px]">{item.name}</td>
+                            <td className="py-0.5 text-right whitespace-nowrap px-1">{item.quantity}</td>
+                            <td className="py-0.5 text-right whitespace-nowrap px-1">{item.price.toFixed(0)}</td>
+                            <td className="py-0.5 text-right whitespace-nowrap pl-1 font-bold">{item.total.toFixed(0)}</td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
 
             <div className="border-b border-black border-dashed my-1" />
 

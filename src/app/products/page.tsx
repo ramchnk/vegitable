@@ -170,12 +170,19 @@ export default function ProductsPage() {
   }, [isBulkEditing, products, tempPrices]);
 
   const handlePriceKeyDown = (e: React.KeyboardEvent, index: number) => {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' || e.key === 'ArrowDown') {
       e.preventDefault();
       const nextInput = document.getElementById(`price-input-${index + 1}`);
       if (nextInput) {
         (nextInput as HTMLInputElement).focus();
         (nextInput as HTMLInputElement).select();
+      }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const prevInput = document.getElementById(`price-input-${index - 1}`);
+      if (prevInput) {
+        (prevInput as HTMLInputElement).focus();
+        (prevInput as HTMLInputElement).select();
       }
     }
   };
