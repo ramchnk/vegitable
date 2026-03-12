@@ -94,6 +94,10 @@ export default function SalesPage() {
   const [outstanding, setOutstanding] = useState(0);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isCustomerPopoverOpen, setIsCustomerPopoverOpen] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [customerHighlightIndex, setCustomerHighlightIndex] = useState(-1);
+  const [itemSearch, setItemSearch] = useState("");
+  const [itemHighlightIndex, setItemHighlightIndex] = useState(-1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const creatingRef = useRef(false);
 
@@ -103,6 +107,8 @@ export default function SalesPage() {
   const customNameRef = useRef<HTMLInputElement>(null);
   const weightRef = useRef<HTMLInputElement>(null);
   const priceRef = useRef<HTMLInputElement>(null);
+  const customerListRef = useRef<HTMLDivElement>(null);
+  const itemListRef = useRef<HTMLDivElement>(null);
 
   const form = useForm<SalesFormValues>({
     resolver: zodResolver(salesFormSchema),
@@ -200,6 +206,20 @@ export default function SalesPage() {
     watchedItems.reduce((acc, item) => acc + (item.quantity || 0) * (item.price || 0), 0),
     [watchedItems]
   );
+
+  const filteredCustomers = useMemo(() => {
+    const q = customerSearch.toLowerCase();
+    return q
+      ? customers.filter(c => c.name?.toLowerCase().includes(q) || c.code?.toLowerCase().includes(q))
+      : customers;
+  }, [customers, customerSearch]);
+
+  const filteredProducts = useMemo(() => {
+    const q = itemSearch.toLowerCase();
+    return q
+      ? products.filter(p => p.name?.toLowerCase().includes(q) || p.itemCode?.toLowerCase().includes(q))
+      : products;
+  }, [products, itemSearch]);
 
   // Manual Paid Amount logic
   const netAmount = totalCost;
@@ -560,11 +580,12 @@ export default function SalesPage() {
 
       // Enter key to open customer search on landing
       if (e.key === "Enter" && !isCustomerPopoverOpen && !isCalendarOpen && !openCombobox) {
-        // Only trigger if no input is focused or the body is focused
+        // Only trigger if no input or button is focused
         const activeEl = document.activeElement;
         const isInputFocused = activeEl instanceof HTMLInputElement || activeEl instanceof HTMLTextAreaElement || activeEl?.getAttribute('role') === 'combobox';
+        const isButtonFocused = activeEl instanceof HTMLButtonElement;
 
-        if (!isInputFocused || activeEl === document.body) {
+        if (!isInputFocused && !isButtonFocused || activeEl === document.body) {
           e.preventDefault();
           setIsCustomerPopoverOpen(true);
         }
@@ -744,58 +765,106 @@ export default function SalesPage() {
                             </FormControl>
                           </PopoverTrigger>
                           <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                            <Command>
-                              <CommandInput placeholder={t('forms.search_customer')} />
-                              <CommandList>
-                                <CommandEmpty>{t('forms.no_customer_found')}</CommandEmpty>
-                                <CommandGroup>
-                                  {customers.map((customer) => (
-                                    <CommandItem
-                                      value={`${customer.code || ''} ${customer.name}`}
-                                      key={customer.id}
-                                      onSelect={() => {
-                                        const isWalkInSelection = customer.name?.toLowerCase().includes("walk-in");
-                                        form.setValue("customerId", customer.id);
-                                        setIsCustomerPopoverOpen(false);
-
-                                        if (isWalkInSelection) {
-                                          // Wait for render and popover close
-                                          setTimeout(() => {
-                                            const el = document.getElementById("custom-customer-name");
-                                            if (el) {
-                                              el.focus();
-                                            } else {
-                                              // Fallback to trigger then manual focus
-                                              customerTriggerRef.current?.focus();
-                                            }
-                                          }, 200);
-                                        } else {
-                                          setTimeout(() => itemTypeTriggerRef.current?.focus(), 100);
+                              <div className="flex flex-col">
+                                <div className="p-2 border-b">
+                                  <Input
+                                    autoFocus
+                                    placeholder={t('forms.search_customer')}
+                                    value={customerSearch}
+                                    onChange={(e) => { setCustomerSearch(e.target.value); setCustomerHighlightIndex(0); }}
+                                    className="h-8 text-sm"
+                                    onKeyDown={(e) => {
+                                      if (e.key === "ArrowDown") {
+                                        e.preventDefault();
+                                        const next = Math.min(customerHighlightIndex + 1, filteredCustomers.length - 1);
+                                        setCustomerHighlightIndex(next);
+                                        setTimeout(() => {
+                                          const el = customerListRef.current?.children[next] as HTMLElement;
+                                          el?.scrollIntoView({ block: "nearest" });
+                                        }, 0);
+                                      } else if (e.key === "ArrowUp") {
+                                        e.preventDefault();
+                                        const prev = Math.max(customerHighlightIndex - 1, 0);
+                                        setCustomerHighlightIndex(prev);
+                                        setTimeout(() => {
+                                          const el = customerListRef.current?.children[prev] as HTMLElement;
+                                          el?.scrollIntoView({ block: "nearest" });
+                                        }, 0);
+                                      } else if (e.key === "Enter") {
+                                        e.preventDefault();
+                                        const idx = customerHighlightIndex >= 0 ? customerHighlightIndex : 0;
+                                        const customer = filteredCustomers[idx];
+                                        if (customer) {
+                                          const isWalkInSelection = customer.name?.toLowerCase().includes("walk-in");
+                                          form.setValue("customerId", customer.id);
+                                          setIsCustomerPopoverOpen(false);
+                                          setCustomerSearch("");
+                                          setCustomerHighlightIndex(-1);
+                                          if (isWalkInSelection) {
+                                            setTimeout(() => {
+                                              const el = document.getElementById("custom-customer-name");
+                                              el ? el.focus() : customerTriggerRef.current?.focus();
+                                            }, 200);
+                                          } else {
+                                            setTimeout(() => itemTypeTriggerRef.current?.focus(), 100);
+                                          }
                                         }
-                                      }}
-                                    >
-                                      <Check
+                                      } else if (e.key === "Escape") {
+                                        setIsCustomerPopoverOpen(false);
+                                        setCustomerSearch("");
+                                        setCustomerHighlightIndex(-1);
+                                      }
+                                    }}
+                                  />
+                                </div>
+                                <div className="max-h-[300px] overflow-y-auto" ref={customerListRef}>
+                                  {filteredCustomers.length === 0 ? (
+                                    <div className="py-6 text-center text-sm text-muted-foreground">{t('forms.no_customer_found')}</div>
+                                  ) : (
+                                    filteredCustomers.map((customer, idx) => (
+                                      <button
+                                        key={customer.id}
+                                        type="button"
                                         className={cn(
-                                          "mr-2 h-4 w-4",
-                                          customer.id === field.value
-                                            ? "opacity-100"
-                                            : "opacity-0"
+                                          "relative flex w-full cursor-pointer items-center rounded-sm px-2 py-2 text-base !font-bold !text-[#064e3b] outline-none transition-colors hover:bg-accent",
+                                          (customer.id === field.value || idx === customerHighlightIndex) && "bg-accent"
                                         )}
-                                      />
-                                      <span className="flex items-center gap-2 text-base py-1 !text-[#064e3b] !font-bold">
-                                        {customer.code && (
-                                          <span className="px-1.5 py-0.5 rounded bg-green-100 font-mono text-xs font-bold !text-[#064e3b]">
-                                            {customer.code}
-                                          </span>
-                                        )}
-                                        <span className="!font-bold !text-[#064e3b]">{customer.name}</span>
-                                      </span>
-                                    </CommandItem>
-                                  ))}
-                                </CommandGroup>
-                              </CommandList>
-                            </Command>
-                          </PopoverContent>
+                                        onClick={() => {
+                                          const isWalkInSelection = customer.name?.toLowerCase().includes("walk-in");
+                                          form.setValue("customerId", customer.id);
+                                          setIsCustomerPopoverOpen(false);
+                                          setCustomerSearch("");
+                                          setCustomerHighlightIndex(-1);
+                                          if (isWalkInSelection) {
+                                            setTimeout(() => {
+                                              const el = document.getElementById("custom-customer-name");
+                                              el ? el.focus() : customerTriggerRef.current?.focus();
+                                            }, 200);
+                                          } else {
+                                            setTimeout(() => itemTypeTriggerRef.current?.focus(), 100);
+                                          }
+                                        }}
+                                      >
+                                        <Check
+                                          className={cn(
+                                            "mr-2 h-4 w-4 shrink-0",
+                                            customer.id === field.value ? "opacity-100" : "opacity-0"
+                                          )}
+                                        />
+                                        <span className="flex items-center gap-2 text-base py-1 !text-[#064e3b] !font-bold">
+                                          {customer.code && (
+                                            <span className="px-1.5 py-0.5 rounded bg-green-100 font-mono text-xs font-bold !text-[#064e3b]">
+                                              {customer.code}
+                                            </span>
+                                          )}
+                                          <span className="!font-bold !text-[#064e3b]">{customer.name}</span>
+                                        </span>
+                                      </button>
+                                    ))
+                                  )}
+                                </div>
+                              </div>
+                            </PopoverContent>
                         </Popover>
                         <FormMessage />
                       </FormItem>
@@ -863,41 +932,90 @@ export default function SalesPage() {
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                        <Command>
-                          <CommandInput placeholder={t('forms.search_item')} />
-                          <CommandList>
-                            <CommandEmpty>{t('forms.no_item_found')}</CommandEmpty>
-                            <CommandGroup>
-                              {products.map((product) => (
-                                <CommandItem
-                                  key={product.id}
-                                  value={`${product.itemCode} - ${product.name}`}
-                                  onSelect={() => {
-                                    handleItemSelect(product.id)
-                                    setOpenCombobox(false)
-                                    setTimeout(() => weightRef.current?.focus(), 0);
-                                  }}
-                                >
-                                  <Check
+                          <div className="flex flex-col">
+                            <div className="p-2 border-b">
+                              <Input
+                                autoFocus
+                                placeholder={t('forms.search_item')}
+                                value={itemSearch}
+                                onChange={(e) => { setItemSearch(e.target.value); setItemHighlightIndex(0); }}
+                                className="h-8 text-sm"
+                                onKeyDown={(e) => {
+                                  if (e.key === "ArrowDown") {
+                                    e.preventDefault();
+                                    const next = Math.min(itemHighlightIndex + 1, filteredProducts.length - 1);
+                                    setItemHighlightIndex(next);
+                                    setTimeout(() => {
+                                      const el = itemListRef.current?.children[next] as HTMLElement;
+                                      el?.scrollIntoView({ block: "nearest" });
+                                    }, 0);
+                                  } else if (e.key === "ArrowUp") {
+                                    e.preventDefault();
+                                    const prev = Math.max(itemHighlightIndex - 1, 0);
+                                    setItemHighlightIndex(prev);
+                                    setTimeout(() => {
+                                      const el = itemListRef.current?.children[prev] as HTMLElement;
+                                      el?.scrollIntoView({ block: "nearest" });
+                                    }, 0);
+                                  } else if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    const idx = itemHighlightIndex >= 0 ? itemHighlightIndex : 0;
+                                    const product = filteredProducts[idx];
+                                    if (product) {
+                                      handleItemSelect(product.id);
+                                      setOpenCombobox(false);
+                                      setItemSearch("");
+                                      setItemHighlightIndex(-1);
+                                      setTimeout(() => weightRef.current?.focus(), 0);
+                                    }
+                                  } else if (e.key === "Escape") {
+                                    setOpenCombobox(false);
+                                    setItemSearch("");
+                                    setItemHighlightIndex(-1);
+                                  }
+                                }}
+                              />
+                            </div>
+                            <div className="max-h-[300px] overflow-y-auto" ref={itemListRef}>
+                              {filteredProducts.length === 0 ? (
+                                <div className="py-6 text-center text-sm text-muted-foreground">{t('forms.no_item_found')}</div>
+                              ) : (
+                                filteredProducts.map((product, idx) => (
+                                  <button
+                                    key={product.id}
+                                    type="button"
                                     className={cn(
-                                      "mr-2 h-4 w-4",
-                                      newItemId === product.id ? "opacity-100" : "opacity-0"
+                                      "relative flex w-full cursor-pointer items-center rounded-sm px-2 py-2 text-base !font-bold !text-[#064e3b] outline-none transition-colors hover:bg-accent",
+                                      (newItemId === product.id || idx === itemHighlightIndex) && "bg-accent"
                                     )}
-                                  />
-                                  <span className="flex items-center gap-2 text-base py-1 !text-[#064e3b] !font-bold">
-                                    {product.itemCode && (
-                                      <span className="px-1.5 py-0.5 rounded bg-green-100 font-mono text-xs font-bold !text-[#064e3b]">
-                                        {product.itemCode}
-                                      </span>
-                                    )}
-                                    <span className="!font-bold !text-[#064e3b]">{product.name}</span>
-                                  </span>
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
+                                    onClick={() => {
+                                      handleItemSelect(product.id);
+                                      setOpenCombobox(false);
+                                      setItemSearch("");
+                                      setItemHighlightIndex(-1);
+                                      setTimeout(() => weightRef.current?.focus(), 0);
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4 shrink-0",
+                                        newItemId === product.id ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    <span className="flex items-center gap-2 text-base py-1 !text-[#064e3b] !font-bold">
+                                      {product.itemCode && (
+                                        <span className="px-1.5 py-0.5 rounded bg-green-100 font-mono text-xs font-bold !text-[#064e3b]">
+                                          {product.itemCode}
+                                        </span>
+                                      )}
+                                      <span className="!font-bold !text-[#064e3b]">{product.name}</span>
+                                    </span>
+                                  </button>
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        </PopoverContent>
                     </Popover>
                   </div>
 

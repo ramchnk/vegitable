@@ -4,18 +4,13 @@ import React, { useState, useMemo, useEffect, useRef } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { Check, User, Wallet, Banknote, Scale, FileText, ChevronsUpDown } from "lucide-react";
+import { Check, User, Wallet, Banknote, Scale, FileText, ChevronsUpDown, Search } from "lucide-react";
 import { useTransactions } from "@/context/transaction-provider";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/context/language-context";
 
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
     Form,
     FormControl,
@@ -24,18 +19,10 @@ import {
     FormLabel,
     FormMessage,
 } from "@/components/ui/form";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import {
-    Command,
-    CommandEmpty,
-    CommandGroup,
-    CommandInput,
-    CommandItem,
-    CommandList,
-} from "@/components/ui/command";
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { Popover, PopoverTrigger } from "@/components/ui/popover";
 import { createRoot } from 'react-dom/client';
@@ -50,7 +37,7 @@ const PopoverContentInsideDialog = React.forwardRef<
         align={align}
         sideOffset={sideOffset}
         className={cn(
-            "z-[100] w-[--radix-popover-trigger-width] rounded-md border bg-popover p-0 text-popover-foreground shadow-xl outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
+            "z-[9999] w-[--radix-popover-trigger-width] rounded-md border bg-popover p-0 text-popover-foreground shadow-xl outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
             className
         )}
         {...props}
@@ -90,8 +77,76 @@ export function TransactionDialog({
     const { toast } = useToast();
     const { t } = useLanguage();
     const amountInputRef = useRef<HTMLInputElement>(null);
+    const paymentMethodRef = useRef<HTMLSelectElement>(null);
+    const narrationRef = useRef<HTMLInputElement>(null);
+    const partyButtonRef = useRef<HTMLButtonElement>(null);
+    const printBtnRef = useRef<HTMLButtonElement>(null);
+    const submitBtnRef = useRef<HTMLButtonElement>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isPartyPopoverOpen, setIsPartyPopoverOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [focusedIndex, setFocusedIndex] = useState(0);
+
+    const filteredParties = useMemo(() => {
+        const partyList = type === "Customer" 
+            ? customers.filter((c: any) => c.code !== "000") 
+            : suppliers;
+        return partyList.filter((p: any) => 
+            p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+            (p.code || '').toLowerCase().includes(searchQuery.toLowerCase())
+        );
+    }, [type, customers, suppliers, searchQuery]);
+
+    useEffect(() => {
+        setFocusedIndex(0);
+    }, [searchQuery, isPartyPopoverOpen]);
+
+    const handleSelectParty = (party: any) => {
+        setSelectedPartyId(party.id);
+        setSelectedPartyName(party.name);
+        const paymentDetail = (type === "Customer" ? customerPayments : supplierPayments)
+            .find(p => p.partyId === party.id);
+        setSelectedDueAmount(paymentDetail?.dueAmount || 0);
+        form.setValue("partyId", party.id);
+        setIsPartyPopoverOpen(false);
+        setSearchQuery("");
+        setTimeout(() => amountInputRef.current?.focus(), 100);
+    };
+
+    // Helper: move focus up/down/next through fields
+    const handleFieldKeyDown = (
+        e: React.KeyboardEvent,
+        refs: React.RefObject<HTMLElement | null>[]
+    ) => {
+        const active = document.activeElement;
+        const isSelect = active?.tagName.toLowerCase() === "select";
+        const isButton = active?.tagName.toLowerCase() === "button";
+
+        // Let native select dropdown handle its own navigation arrows
+        if (isSelect && (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === " ")) {
+            return;
+        }
+        
+        // Let buttons trigger natively on Enter
+        if (isButton && e.key === "Enter") {
+            return;
+        }
+
+        if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter") {
+            e.preventDefault();
+            const currentIndex = refs.findIndex(r => r.current === active);
+            if (currentIndex === -1) return;
+            
+            // Enter or ArrowDown moves to the next field
+            const nextIndex = (e.key === "ArrowDown" || e.key === "Enter")
+                ? Math.min(currentIndex + 1, refs.length - 1)
+                : Math.max(currentIndex - 1, 0);
+                
+            refs[nextIndex].current?.focus();
+        }
+    };
+
+    const fieldRefs = [partyButtonRef, amountInputRef, paymentMethodRef, narrationRef, printBtnRef, submitBtnRef] as React.RefObject<HTMLElement | null>[];
 
     // Internal state for when used as a global dialog
     const [selectedPartyId, setSelectedPartyId] = useState<string | undefined>(partyId);
@@ -212,80 +267,102 @@ export function TransactionDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-md p-0 overflow-visible border-none shadow-2xl">
-                <DialogHeader className="p-3 text-white" style={{ backgroundColor: themeColor }}>
-                    <DialogTitle className="text-base font-bold">
+            <DialogContent className="max-w-[420px] p-0 overflow-visible border border-[#E5E7EB] shadow-xl rounded-2xl bg-white">
+                {/* Header */}
+                <DialogHeader
+                    className="px-6 py-4 rounded-t-2xl"
+                    style={{ backgroundColor: themeColor }}
+                >
+                    <DialogTitle className="text-base font-semibold tracking-wide text-white">
                         {type === "Customer" ? t('payments.buyer_title') : t('payments.supplier_title')}
                     </DialogTitle>
                 </DialogHeader>
 
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit((data) => onSubmit(data))} className="p-5 space-y-4">
-                        {/* Party Selection (Searchable Dropdown if no partyId provided) */}
-                        <div className="flex flex-col gap-2">
-                            <Label className="text-sm font-bold text-gray-700">
+                    <form onSubmit={form.handleSubmit((data) => onSubmit(data))} className="px-6 py-5 space-y-5">
+
+                        {/* Party Selection */}
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                                 {type === "Customer" ? t('forms.customer') : t('forms.supplier')}
                             </Label>
                             {partyId ? (
-                                <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between">
-                                    <span className="text-sm font-black text-gray-900 truncate">{partyName}</span>
-                                    <User className="h-4 w-4 text-slate-400" />
+                                <div className="px-3 py-2.5 bg-gray-50 border border-[#E5E7EB] rounded-lg flex items-center justify-between">
+                                    <span className="text-sm font-semibold text-gray-900 truncate">{partyName}</span>
+                                    <User className="h-4 w-4 text-gray-400" />
                                 </div>
                             ) : (
-                                <Popover open={isPartyPopoverOpen} onOpenChange={setIsPartyPopoverOpen} modal={false}>
-                                    <PopoverTrigger asChild>
+                                <div className="relative">
                                         <Button
+                                            ref={partyButtonRef}
                                             type="button"
                                             variant="outline"
                                             role="combobox"
-                                            className="w-full justify-between h-10 border-gray-300 font-bold text-gray-900"
+                                            aria-expanded={isPartyPopoverOpen}
+                                            className="w-full justify-between h-10 border-[#E5E7EB] text-sm font-medium text-gray-800 rounded-lg"
+                                            onClick={() => setIsPartyPopoverOpen(!isPartyPopoverOpen)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter" || e.key === " ") {
+                                                    e.preventDefault();
+                                                    setIsPartyPopoverOpen(!isPartyPopoverOpen);
+                                                } else if (!isPartyPopoverOpen) {
+                                                    handleFieldKeyDown(e, fieldRefs);
+                                                }
+                                            }}
                                         >
                                             {selectedPartyId
                                                 ? (type === "Customer" ? customers : suppliers).find((p) => p.id === selectedPartyId)?.name
                                                 : (type === "Customer" ? t('forms.select_customer') : t('forms.select_supplier'))}
-                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-40" />
                                         </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContentInsideDialog
-                                        className="w-[--radix-popover-trigger-width] p-0"
-                                        align="start"
-                                    >
-                                        <Command onKeyDown={(e) => {
-                                            // Prevent Escape from closing the Dialog while in the Command list
-                                            if (e.key === "Escape") {
-                                                e.stopPropagation();
-                                                setIsPartyPopoverOpen(false);
-                                            }
-                                        }}>
-                                            <CommandInput
-                                                placeholder={type === "Customer" ? t('forms.search_customer') : t('forms.search_supplier')}
-                                                autoFocus
-                                            />
-                                            <CommandList>
+                                    
+                                    {isPartyPopoverOpen && (
+                                        <div className="absolute top-full left-0 w-full mt-1 z-[9999] rounded-md border bg-white shadow-xl overflow-hidden flex flex-col">
+                                            <div className="flex items-center border-b px-3">
+                                                <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                                                <input
+                                                    className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-gray-500 disabled:cursor-not-allowed disabled:opacity-50"
+                                                    placeholder={type === "Customer" ? t('forms.search_customer') : t('forms.search_supplier')}
+                                                    autoFocus
+                                                    value={searchQuery}
+                                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === "Escape") {
+                                                            setIsPartyPopoverOpen(false);
+                                                        } else if (e.key === "ArrowDown") {
+                                                            e.preventDefault();
+                                                            setFocusedIndex(prev => Math.min(prev + 1, filteredParties.length - 1));
+                                                        } else if (e.key === "ArrowUp") {
+                                                            e.preventDefault();
+                                                            setFocusedIndex(prev => Math.max(prev - 1, 0));
+                                                        } else if (e.key === "Enter") {
+                                                            e.preventDefault();
+                                                            const party = filteredParties[focusedIndex];
+                                                            if (party) handleSelectParty(party);
+                                                        }
+                                                    }}
+                                                />
+                                            </div>
+                                            <div className="max-h-[300px] overflow-y-auto overflow-x-hidden p-1">
                                                 {(type === "Customer" ? customersLoading : suppliersLoading) && (
                                                     <div className="p-4 text-center text-xs text-muted-foreground italic">Loading...</div>
                                                 )}
-                                                <CommandEmpty>{type === "Customer" ? t('forms.no_customer_found') : t('forms.no_supplier_found')}</CommandEmpty>
-                                                <CommandGroup>
-                                                    {(type === "Customer" 
-                                                        ? customers.filter(c => (c as any).code !== "000") 
-                                                        : suppliers).map((party) => (
-                                                        <CommandItem
-                                                            value={`${(party as any).code || ''} ${party.name}`}
+                                                
+                                                {filteredParties.length === 0 && !customersLoading && !suppliersLoading ? (
+                                                    <div className="p-4 text-center text-sm text-gray-500">{type === "Customer" ? t('forms.no_customer_found') : t('forms.no_supplier_found')}</div>
+                                                ) : (
+                                                    filteredParties.map((party, index) => (
+                                                        <button
                                                             key={party.id}
-                                                            onSelect={() => {
-                                                                setSelectedPartyId(party.id);
-                                                                setSelectedPartyName(party.name);
-
-                                                                // Fetch due amount
-                                                                const paymentDetail = (type === "Customer" ? customerPayments : supplierPayments)
-                                                                    .find(p => p.partyId === party.id);
-                                                                setSelectedDueAmount(paymentDetail?.dueAmount || 0);
-
-                                                                form.setValue("partyId", party.id);
-                                                                setIsPartyPopoverOpen(false);
-
-                                                                setTimeout(() => amountInputRef.current?.focus(), 100);
+                                                            type="button"
+                                                            className={cn(
+                                                                "relative flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors",
+                                                                index === focusedIndex ? "bg-gray-100 text-gray-900" : "hover:bg-gray-100 hover:text-gray-900"
+                                                            )}
+                                                            onMouseEnter={() => setFocusedIndex(index)}
+                                                            onMouseDown={(e) => {
+                                                                e.preventDefault();
+                                                                handleSelectParty(party);
                                                             }}
                                                         >
                                                             <Check
@@ -300,22 +377,41 @@ export function TransactionDialog({
                                                                         {(party as any).code}
                                                                     </span>
                                                                 )}
-                                                                <span className="font-bold">{party.name}</span>
+                                                                <span className="font-semibold">{party.name}</span>
                                                             </span>
-                                                        </CommandItem>
-                                                    ))}
-                                                </CommandGroup>
-                                            </CommandList>
-                                        </Command>
-                                    </PopoverContentInsideDialog>
-                                </Popover>
+                                                        </button>
+                                                    ))
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             )}
                         </div>
 
-                        {/* Opening Balance */}
-                        <div className="grid grid-cols-2 items-center gap-4 bg-slate-50/50 p-2.5 rounded-lg border border-slate-100">
-                            <span className="text-sm font-bold text-gray-700">{t('payments.opening_balance_debit')}</span>
-                            <span className="text-base font-black text-slate-900 text-right">{(selectedDueAmount || 0).toFixed(0)}</span>
+                        {/* Balance Summary Card */}
+                        <div className="rounded-xl border border-[#E5E7EB] bg-gray-50 divide-y divide-[#E5E7EB]">
+                            {/* Opening Balance */}
+                            <div className="flex items-center justify-between px-4 py-3">
+                                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                    {t('payments.opening_balance_debit')}
+                                </span>
+                                <span className="text-sm font-bold text-gray-700">
+                                    {(selectedDueAmount || 0).toFixed(0)}
+                                </span>
+                            </div>
+                            {/* Closing Balance */}
+                            <div className="flex items-center justify-between px-4 py-3">
+                                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                    {t('payments.closing_balance')}
+                                </span>
+                                <span className={cn(
+                                    "text-lg font-black",
+                                    closingBalance < 0 ? "text-red-600" : "text-emerald-600"
+                                )}>
+                                    {closingBalance.toFixed(0)}
+                                </span>
+                            </div>
                         </div>
 
                         {/* Amount Field */}
@@ -323,8 +419,8 @@ export function TransactionDialog({
                             control={form.control}
                             name="givenAmount"
                             render={({ field }) => (
-                                <FormItem className="space-y-2">
-                                    <FormLabel className="text-sm font-bold text-gray-700">
+                                <FormItem className="space-y-1.5">
+                                    <FormLabel className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                                         {t('payments.given_amount')}
                                     </FormLabel>
                                     <FormControl>
@@ -333,7 +429,8 @@ export function TransactionDialog({
                                             {...field}
                                             value={field.value ?? ""}
                                             ref={amountInputRef}
-                                            className="bg-white border-gray-300 h-10 text-lg font-bold focus-visible:ring-1 focus-visible:ring-blue-400"
+                                            className="h-11 rounded-lg border-[#E5E7EB] bg-white text-base font-bold text-gray-900 focus-visible:ring-1 focus-visible:ring-blue-500 focus-visible:border-blue-500"
+                                            onKeyDown={(e) => handleFieldKeyDown(e, fieldRefs)}
                                         />
                                     </FormControl>
                                     <FormMessage className="text-[10px]" />
@@ -346,50 +443,44 @@ export function TransactionDialog({
                             control={form.control}
                             name="paymentMethod"
                             render={({ field }) => (
-                                <div className="flex flex-row items-center justify-between py-2 bg-slate-50/50 rounded-lg px-3 gap-2">
-                                    {["Cash", "GPay", "NEFT"].map((method) => (
-                                        <div key={method} className="flex items-center space-x-2 font-bold">
-                                            <Checkbox
-                                                id={method}
-                                                checked={field.value === method}
-                                                onCheckedChange={(checked) => {
-                                                    if (checked) field.onChange(method);
-                                                }}
-                                                className="h-5 w-5 border-gray-400 data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
-                                            />
-                                            <Label htmlFor={method} className="text-xs font-bold cursor-pointer uppercase text-gray-600 tracking-tight">
-                                                {method === "Cash" ? t('payments.cash') : (method === "NEFT" ? t('forms.neft') : method)}
-                                            </Label>
-                                        </div>
-                                    ))}
-                                </div>
+                                <FormItem className="space-y-1.5">
+                                    <FormLabel className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                        {t('forms.payment_type') || 'Payment Method'}
+                                    </FormLabel>
+                                    <FormControl>
+                                        <select
+                                            {...field}
+                                            ref={paymentMethodRef}
+                                            className="w-full h-11 rounded-lg border border-[#E5E7EB] bg-white px-3 text-sm font-semibold text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
+                                            onKeyDown={(e) => handleFieldKeyDown(e, fieldRefs)}
+                                        >
+                                            <option value="Cash">{t('payments.cash') || 'Cash'}</option>
+                                            <option value="GPay">GPay</option>
+                                            <option value="NEFT">{t('forms.neft') || 'Card / Bank'}</option>
+                                        </select>
+                                    </FormControl>
+                                </FormItem>
                             )}
                         />
-
-                        {/* Closing Balance */}
-                        <div className="grid grid-cols-2 items-center gap-4 py-1">
-                            <span className="text-sm font-bold text-gray-700">{t('payments.closing_balance')}</span>
-                            <span className={cn("text-xl font-black text-right", closingBalance < 0 ? "text-red-600" : "text-emerald-700")}>
-                                {closingBalance.toFixed(0)}
-                            </span>
-                        </div>
 
                         {/* Narration */}
                         <FormField
                             control={form.control}
                             name="narration"
                             render={({ field }) => (
-                                <FormItem className="space-y-2">
-                                    <FormLabel className="text-sm font-bold text-gray-700">
+                                <FormItem className="space-y-1.5">
+                                    <FormLabel className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                                         {t('payments.narration')}
                                     </FormLabel>
                                     <FormControl>
                                         <Input
                                             {...field}
+                                            ref={narrationRef}
                                             value={field.value ?? ""}
                                             placeholder={t('payments.narration')}
                                             autoComplete="off"
-                                            className="bg-white border-gray-300 h-10 text-sm focus-visible:ring-1 focus-visible:ring-blue-400"
+                                            className="h-11 rounded-lg border-[#E5E7EB] bg-white text-sm text-gray-800 placeholder:text-gray-400 focus-visible:ring-1 focus-visible:ring-blue-500 focus-visible:border-blue-500"
+                                            onKeyDown={(e) => handleFieldKeyDown(e, fieldRefs)}
                                         />
                                     </FormControl>
                                     <FormMessage className="text-[10px]" />
@@ -397,34 +488,34 @@ export function TransactionDialog({
                             )}
                         />
 
+                        {/* Divider */}
+                        <div className="border-t border-[#E5E7EB]" />
+
                         {/* Actions */}
-                        <div className="flex justify-end gap-3 pt-2">
+                        <div className="flex items-center justify-end gap-2 pt-0.5">
+                            {/* Save & Print – secondary outline */}
                             <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => onOpenChange(false)}
-                                className="h-10 px-5 font-bold border-slate-200 text-gray-600"
-                            >
-                                {t('actions.cancel')}
-                            </Button>
-                            <Button
+                                ref={printBtnRef}
                                 type="button"
                                 size="sm"
                                 variant="outline"
                                 disabled={isSubmitting || !givenAmount || givenAmount <= 0}
                                 onClick={form.handleSubmit((data) => onSubmit(data, true))}
-                                className="h-10 px-5 font-bold border-slate-200 text-gray-700"
+                                className="h-10 px-4 text-sm font-semibold border-[#E5E7EB] text-gray-700 hover:bg-gray-50"
+                                onKeyDown={(e) => handleFieldKeyDown(e, fieldRefs)}
                             >
                                 {t('actions.save_and_print')}
                             </Button>
+                            {/* Submit – primary */}
                             <Button
+                                ref={submitBtnRef}
                                 type="submit"
                                 size="sm"
                                 disabled={isSubmitting || !givenAmount || givenAmount <= 0 || !selectedPartyId}
-                                className={cn("h-10 px-8 font-bold text-white border-none shadow-md", btnColor)}
+                                className={cn("h-10 px-6 text-sm font-semibold text-white border-none shadow-sm", btnColor)}
+                                onKeyDown={(e) => handleFieldKeyDown(e, fieldRefs)}
                             >
-                                {isSubmitting ? "..." : t('actions.submit')}
+                                {isSubmitting ? "…" : t('actions.submit')}
                             </Button>
                         </div>
                     </form>
