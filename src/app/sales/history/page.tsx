@@ -214,7 +214,11 @@ export default function SalesHistoryPage() {
             styles.forEach(style => printWindow.document.head.appendChild(style));
 
             const hideHeaderFooterStyle = printWindow.document.createElement('style');
-            hideHeaderFooterStyle.innerHTML = '@page { margin: 0; } body { margin: 0; }';
+            hideHeaderFooterStyle.innerHTML = `
+                @page { size: 80mm auto; margin: 0; }
+                body { margin: 0; padding: 0; width: 80mm; min-width: 80mm; -webkit-print-color-adjust: exact; }
+                * { box-sizing: border-box; }
+            `;
             printWindow.document.head.appendChild(hideHeaderFooterStyle);
             printWindow.document.title = '';
 

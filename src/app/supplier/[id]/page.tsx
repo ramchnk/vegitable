@@ -239,7 +239,7 @@ export default function SupplierLedgerPage() {
             const hideHeaderFooterStyle = printWindow.document.createElement('style');
             hideHeaderFooterStyle.innerHTML = `
         @page { size: 80mm auto; margin: 0; }
-        body { margin: 0; padding: 0; width: 80mm; }
+        body { margin: 0; padding: 0; width: 80mm; min-width: 80mm; -webkit-print-color-adjust: exact; }
         * { box-sizing: border-box; }
       `;
             printWindow.document.head.appendChild(hideHeaderFooterStyle);
