@@ -215,8 +215,8 @@ export default function SalesHistoryPage() {
 
             const hideHeaderFooterStyle = printWindow.document.createElement('style');
             hideHeaderFooterStyle.innerHTML = `
-                @page { size: 80mm auto; margin: 0; }
-                body { margin: 0; padding: 0; width: 80mm; min-width: 80mm; -webkit-print-color-adjust: exact; }
+                @page { margin: 0; }
+                body { margin: 0; padding: 0; width: 100%; -webkit-print-color-adjust: exact; }
                 * { box-sizing: border-box; }
             `;
             printWindow.document.head.appendChild(hideHeaderFooterStyle);
