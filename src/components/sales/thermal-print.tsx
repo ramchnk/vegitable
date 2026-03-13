@@ -39,7 +39,7 @@ export const ThermalPrint = React.forwardRef<HTMLDivElement, ThermalPrintProps>(
     } = props;
 
     return (
-        <div ref={ref} className="p-2 font-mono text-[12px] w-[80mm] mx-auto bg-white text-black leading-tight">
+        <div ref={ref} className="p-2 font-mono text-[12px] w-full mx-auto bg-white text-black leading-tight">
             {/* Header */}
             <div className="text-center mb-1.5">
                 <h1 className="text-lg font-black mb-1 whitespace-nowrap">ஓம் சரவணா ஏஜென்சி</h1>
