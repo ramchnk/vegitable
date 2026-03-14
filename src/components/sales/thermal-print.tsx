@@ -39,7 +39,7 @@ export const ThermalPrint = React.forwardRef<HTMLDivElement, ThermalPrintProps>(
     } = props;
 
     return (
-        <div ref={ref} className="p-2 font-mono text-[12px] w-full mx-auto bg-white text-black leading-tight">
+        <div ref={ref} className="p-2 font-mono text-[12px] w-[80mm] mx-auto bg-white text-black leading-tight">
             {/* Header */}
             <div className="text-center mb-1.5">
                 <h1 className="text-lg font-black mb-1 whitespace-nowrap">ஓம் சரவணா ஏஜென்சி</h1>
@@ -53,49 +53,66 @@ export const ThermalPrint = React.forwardRef<HTMLDivElement, ThermalPrintProps>(
             </div>
 
             <div className="mb-1.5 text-[13px] font-bold uppercase">
-                <div className="flex gap-2">
-                    <span>C.No: {billNo}</span>
-                    <span className="flex-1">{customerName}</span>
-                </div>
+                <table width="100%">
+                    <tbody>
+                        <tr>
+                            <td>C.No: {billNo}</td>
+                            <td style={{ textAlign: 'right' }}>{customerName}</td>
+                        </tr>
+                    </tbody>
+                </table>
                 {customerAddress && (
-                    <div className="flex justify-between font-normal text-[12px]">
-                        <span>{customerAddress}</span>
-                    </div>
+                    <table width="100%">
+                        <tbody>
+                            <tr>
+                                <td className="font-normal text-[12px]">{customerAddress}</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 )}
                 {customerPhone && (
-                    <div className="flex gap-2 font-normal text-[12px]">
-                        <span>Mobile:</span>
-                        <span>{customerPhone}</span>
-                    </div>
+                    <table width="100%">
+                        <tbody>
+                            <tr>
+                                <td width="30%" className="font-normal text-[12px]">Mobile:</td>
+                                <td className="font-normal text-[12px]">{customerPhone}</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 )}
             </div>
 
-            <div className="flex justify-between mb-1 text-[12px] font-bold border-t border-black pt-1.5">
-                <span>B.No:{billNo.toString().padStart(6, '0')}</span>
-                <span>{format(date, 'HH:mm')}</span>
-                <span>C.No 1</span>
-                <span>Dt :{format(date, 'dd/MM/yy')}</span>
+            <div className="mb-1 text-[12px] font-bold">
+                <table className="border-t border-black pt-1.5" width="100%">
+                    <tbody>
+                        <tr>
+                            <td>B.No:{billNo.toString().padStart(6, '0')}</td>
+                            <td style={{ textAlign: 'center' }}>{format(date, 'HH:mm')}</td>
+                            <td style={{ textAlign: 'right' }}>Dt :{format(date, 'dd/MM/yy')}</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
 
             <div className="border-b border-black my-1.5" />
 
             {/* Items Table */}
-            <table className="w-full border-collapse">
+            <table width="100%" className="border-collapse">
                 <thead>
                     <tr className="font-bold text-[13px] border-b border-black">
-                        <th className="text-left py-1.5">Particulars</th>
-                        <th className="text-right py-1.5" style={{ width: '45px' }}>Qty</th>
-                        <th className="text-right py-1.5" style={{ width: '65px' }}>Rate</th>
-                        <th className="text-right py-1.5" style={{ width: '80px' }}>Amount</th>
+                        <th align="left" className="py-1.5">Particulars</th>
+                        <th align="right" className="py-1.5" style={{ width: '45px' }}>Qty</th>
+                        <th align="right" className="py-1.5" style={{ width: '65px' }}>Rate</th>
+                        <th align="right" className="py-1.5" style={{ width: '80px' }}>Amount</th>
                     </tr>
                 </thead>
                 <tbody className="text-[13px] leading-relaxed">
                     {items.map((item, index) => (
                         <tr key={index} className="align-top border-b border-black/10">
                             <td className="py-1">{item.name}</td>
-                            <td className="py-1 text-right font-bold">{item.quantity}</td>
-                            <td className="py-1 text-right font-bold ">{item.price.toFixed(2)}</td>
-                            <td className="py-1 text-right font-bold">{item.total.toFixed(2)}</td>
+                            <td align="right" className="py-1 font-bold">{item.quantity}</td>
+                            <td align="right" className="py-1 font-bold ">{item.price.toFixed(2)}</td>
+                            <td align="right" className="py-1 font-bold">{item.total.toFixed(2)}</td>
                         </tr>
                     ))}
                 </tbody>
@@ -103,30 +120,39 @@ export const ThermalPrint = React.forwardRef<HTMLDivElement, ThermalPrintProps>(
 
             {/* Footer Totals */}
             <div className="space-y-1 mt-2">
-                <div className="flex justify-between items-center text-[12px] font-bold">
-                    <div className="flex gap-6">
-                        <span>{totalItems} Items</span>
-                        <span>Qty {totalQty}</span>
-                    </div>
-                    <span className="">{totalAmount.toFixed(2)}</span>
-                </div>
+                <table width="100%" className="text-[12px] font-bold">
+                    <tbody>
+                        <tr>
+                            <td>{totalItems} Items | Qty {totalQty}</td>
+                            <td style={{ textAlign: 'right' }}>{totalAmount.toFixed(2)}</td>
+                        </tr>
+                    </tbody>
+                </table>
 
                 <div className="border-b border-black my-2" />
 
-                <div className="flex justify-between text-lg font-black items-center">
-                    <span className="text-base">TOTAL Rs.</span>
-                    <span className="text-2xl">{totalAmount.toFixed(2)}</span>
-                </div>
+                <table width="100%">
+                    <tbody>
+                        <tr>
+                            <td style={{ fontSize: '16px', fontWeight: 900 }}>TOTAL Rs.</td>
+                            <td style={{ textAlign: 'right', fontSize: '24px', fontWeight: 900 }}>{totalAmount.toFixed(2)}</td>
+                        </tr>
+                    </tbody>
+                </table>
 
                 <div className="space-y-0.5 text-[13px] font-bold mt-2">
-                    <div className="flex justify-between">
-                        <span>Old. Bal. :</span>
-                        <span>{oldBalance.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span>Cur. Bal. :</span>
-                        <span>{currentBalance.toFixed(2)}</span>
-                    </div>
+                    <table width="100%">
+                        <tbody>
+                            <tr>
+                                <td>Old. Bal. :</td>
+                                <td align="right">{oldBalance.toFixed(2)}</td>
+                            </tr>
+                            <tr>
+                                <td>Cur. Bal. :</td>
+                                <td align="right">{currentBalance.toFixed(2)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 

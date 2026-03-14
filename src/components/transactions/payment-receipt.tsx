@@ -34,44 +34,68 @@ export const PaymentReceipt = React.forwardRef<HTMLDivElement, PaymentReceiptPro
 
             {/* Date and Name */}
             <div className="space-y-4 mb-4 text-base font-bold">
-                <div className="flex items-center gap-2">
-                    <span>Date :</span>
-                    <span>{format(date, 'dd-MM-yyyy')}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <span>Name :</span>
-                    <span className="uppercase">{partyName}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <span>Type :</span>
-                    <span className="text-sm">{paymentMethod === "NEFT" ? "Card/Bank" : paymentMethod}</span>
-                </div>
+                <table width="100%">
+                    <tbody>
+                        <tr>
+                            <td width="30%">Date :</td>
+                            <td>{format(date, 'dd-MM-yyyy')}</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <table width="100%">
+                    <tbody>
+                        <tr>
+                            <td width="30%">Name :</td>
+                            <td className="uppercase">{partyName}</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <table width="100%">
+                    <tbody>
+                        <tr>
+                            <td width="30%">Type :</td>
+                            <td className="text-sm">{paymentMethod === "NEFT" ? "Card/Bank" : paymentMethod}</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
 
             <div className="border-t-2 border-black my-2" />
 
             {/* Old Balance */}
-            <div className="flex justify-between items-center py-1 text-base font-bold">
-                <span>Old Balance</span>
-                <span>{Number(oldBalance || 0).toFixed(2)}</span>
-            </div>
+            <table width="100%" className="py-1 text-base font-bold">
+                <tbody>
+                    <tr>
+                        <td>Old Balance</td>
+                        <td align="right">{Number(oldBalance || 0).toFixed(2)}</td>
+                    </tr>
+                </tbody>
+            </table>
 
             {/* Payments */}
-            <div className="flex justify-between items-start pt-2 text-base font-bold">
-                <div className="flex flex-col">
-                    <span>Payments :</span>
-                    <span className="text-sm pl-2">{paymentMethod === "NEFT" ? "Card/Bank" : paymentMethod}</span>
-                </div>
-                <span className="pt-0.5">{Number(amount || 0).toFixed(2)}</span>
-            </div>
+            <table width="100%" className="pt-2 text-base font-bold">
+                <tbody>
+                    <tr style={{ verticalAlign: 'top' }}>
+                        <td>
+                            <div>Payments :</div>
+                            <div className="text-sm pl-2">{paymentMethod === "NEFT" ? "Card/Bank" : paymentMethod}</div>
+                        </td>
+                        <td align="right" className="pt-0.5">{Number(amount || 0).toFixed(2)}</td>
+                    </tr>
+                </tbody>
+            </table>
 
             <div className="border-t-2 border-black my-2" />
 
             {/* Current Balance */}
-            <div className="flex justify-between items-center py-1 text-base font-bold">
-                <span>Current Balance :</span>
-                <span>{Number(currentBalance || 0).toFixed(2)}</span>
-            </div>
+            <table width="100%" className="py-1 text-base font-bold">
+                <tbody>
+                    <tr>
+                        <td>Current Balance :</td>
+                        <td align="right">{Number(currentBalance || 0).toFixed(2)}</td>
+                    </tr>
+                </tbody>
+            </table>
 
             <div className="border-t-2 border-black w-1/2 my-4" />
         </div>
